@@ -239,9 +239,9 @@
           <summary>Rules reference ▾</summary>
           <div class="rbody">
             <p><b>Ladder:</b> Line ▸ Triangle ▸ Square ▸ Pentagon ▸ Hexagon. More sides sit higher.</p>
-            <p><b>Step</b> — play the form one level above or below the active form. Up = clockwise, down = counter-clockwise. Sets form + direction, moves one seat.</p>
-            <p><b>Stack</b> — play one or more <i>exact</i> matches of the active form. Direction unchanged. Moves one seat per card.</p>
-            <p><b>Circle</b> — wild, legal on any form. Name the next form and choose a direction. Moves one seat. Never stacks.</p>
+            <p><b>Play up or down.</b> Each turn, play the rung one form <i>above</i> the centre (up the ladder · clockwise) or one form <i>below</i> (down · counter-clockwise). You never play the centre form itself.</p>
+            <p><b>Stack for distance.</b> Play several copies of that same up/down shape to move that many seats — two squares = two seats, three = three. No limit. Which way you go sets the direction.</p>
+            <p><b>Circle</b> — the only wild, legal on any form. Name the next form and choose a direction. Moves one seat. Never stacks.</p>
             <p><b>Walls</b> — no wrap. At a Line you can only step up; at a Hexagon only down.</p>
             <p><b>Blocked</b> — if you can't step, stack, or circle, draw one. Play it if it's legal, otherwise pass.</p>
             <p><b>Win</b> — first to empty their hand, even on a stack or circle.</p>
@@ -308,26 +308,31 @@ function countForm(hand, f){ var n=0; for(var i=0;i<hand.length;i++) if(hand[i].
 function hasForm(hand, f){ return countForm(hand,f)>0; }
 
 // legal options for a hand against the active form
+// A turn = play one or more cards of a SINGLE adjacent form: the rung ABOVE the
+// centre (up = clockwise) or the rung BELOW (down = counter-clockwise). Distance =
+// number of cards. You never play the centre form itself. Circle is the only wild.
 function legalPlays(hand, activeForm){
   var r = rankOf(activeForm);
+  var upForm = r<4 ? FORMS[r+1] : null;
+  var downForm = r>0 ? FORMS[r-1] : null;
   return {
-    stepUp:   r<4 && hasForm(hand, FORMS[r+1]),
-    stepDown: r>0 && hasForm(hand, FORMS[r-1]),
-    stackMax: countForm(hand, activeForm),
-    circle:   hasForm(hand,'circle')
+    upForm: upForm,
+    downForm: downForm,
+    upMax: upForm ? countForm(hand, upForm) : 0,
+    downMax: downForm ? countForm(hand, downForm) : 0,
+    circle: hasForm(hand,'circle')
   };
 }
 function hasAnyLegal(hand, activeForm){
   var p = legalPlays(hand, activeForm);
-  return p.stepUp || p.stepDown || p.stackMax>0 || p.circle;
+  return p.upMax>0 || p.downMax>0 || p.circle;
 }
-// is a single card playable on the active form?
+// is a single card playable on the active form? (adjacent rung up/down, or circle)
 function cardPlayable(card, activeForm){
   if(card.form==='circle') return true;
   var r = rankOf(activeForm), cr = rankOf(card.form);
-  if(cr===r) return true;              // stack of 1
-  if(cr===r+1 && r<4) return true;     // step up
-  if(cr===r-1 && r>0) return true;     // step down
+  if(cr===r+1 && r<4) return true;     // up
+  if(cr===r-1 && r>0) return true;     // down
   return false;
 }
 
@@ -356,7 +361,7 @@ function newGame(playerDescs, opts){
     direction: CW,
     turnSeat: starterSeat,
     dealerSeat: dealerSeat,
-    needStartDir: true,
+    needStartDir: false,
     pendingDraw: null,      // {seat, cardId}
     winner: null,
     started: true,
@@ -414,37 +419,21 @@ function applyAction(g, seat, action, rnd){
     return playSingleCard(g, seat, card, action, 'drew & ');
   }
 
-  if(g.needStartDir){
-    if(action.type!=='startDir') return {ok:false,error:'choose start direction'};
-    g.direction = (action.dir===CCW)?CCW:CW;
-    g.needStartDir = false;
-    pushLog(g,{seat:seat,name:name,kind:'dir',text:'leads off '+(g.direction===CW?'clockwise':'counter-clockwise')});
-    return {ok:true};
-  }
-
   var r = rankOf(g.activeForm);
-  if(action.type==='step'){
+  if(action.type==='play'){
+    // unified up/down move: play 1+ of the adjacent rung; count = seats moved
     var up = action.dir==='up';
     var nf = up ? (r<4?FORMS[r+1]:null) : (r>0?FORMS[r-1]:null);
     if(!nf) return {ok:false,error:'wall'};
-    if(!hasForm(pl.hand,nf)) return {ok:false,error:'no card'};
-    var taken = takeForm(pl.hand, nf, 1);
-    g.discard.push(taken[0]);
+    var cnt = action.count|0;
+    var avail = countForm(pl.hand, nf);
+    if(cnt<1 || cnt>avail) return {ok:false,error:'bad count'};
+    var taken = takeForm(pl.hand, nf, cnt);
+    for(var i=0;i<taken.length;i++) g.discard.push(taken[i]);
     g.activeForm = nf;
     g.direction = up?CW:CCW;
     checkWin(g,seat);
-    pushLog(g,{seat:seat,name:name,kind:'step',text:'stepped '+(up?'up':'down')+' to '+nf+(up?' · clockwise':' · counter-clockwise')});
-    if(!g.winner) advance(g,1);
-    return {ok:true};
-  }
-  if(action.type==='stack'){
-    var cnt = action.count|0;
-    var avail = countForm(pl.hand, g.activeForm);
-    if(cnt<1 || cnt>avail) return {ok:false,error:'bad stack count'};
-    var t = takeForm(pl.hand, g.activeForm, cnt);
-    for(var i=0;i<t.length;i++) g.discard.push(t[i]);
-    checkWin(g,seat);
-    pushLog(g,{seat:seat,name:name,kind:'stack',text:'stacked '+cnt+' '+g.activeForm+(cnt>1?'s':'')+' · moves '+cnt});
+    pushLog(g,{seat:seat,name:name,kind:up?'up':'down',text:'played '+cnt+' '+nf+(cnt>1?'s':'')+' — '+(up?'up the ladder · clockwise':'down the ladder · counter-clockwise')+' · moves '+cnt});
     if(!g.winner) advance(g,cnt);
     return {ok:true};
   }
@@ -491,14 +480,9 @@ function playSingleCard(g, seat, card, action, prefix){
     if(!g.winner) advance(g,1); return {ok:true};
   }
   removeCards(pl.hand,[card.id]); g.discard.push(card);
-  if(cr===r){ // stack of 1, direction stays
-    checkWin(g,seat);
-    pushLog(g,{seat:seat,name:name,kind:'stack',text:prefix+'played a '+card.form+' · direction holds'});
-    if(!g.winner) advance(g,1); return {ok:true};
-  }
   var up = cr===r+1;
   g.activeForm=card.form; g.direction=up?CW:CCW; checkWin(g,seat);
-  pushLog(g,{seat:seat,name:name,kind:'step',text:prefix+'stepped '+(up?'up':'down')+' to '+card.form});
+  pushLog(g,{seat:seat,name:name,kind:up?'up':'down',text:prefix+'played a '+card.form+' — '+(up?'up · clockwise':'down · counter-clockwise')});
   if(!g.winner) advance(g,1); return {ok:true};
 }
 
@@ -515,15 +499,12 @@ function botChooseAction(g, seat, rnd){
     }
     return {type:'playDrawn', play:false};
   }
-  if(g.needStartDir){ return {type:'startDir', dir: rnd()<.5?CW:CCW}; }
-
   var cand = [];
-  // stacks
-  var stackMax = countForm(hand, af);
-  for(var k=1;k<=stackMax;k++) cand.push({type:'stack', count:k, shed:k, keeps: (stackMax-k), circle:false});
-  // steps
-  if(r<4 && hasForm(hand,FORMS[r+1])) cand.push({type:'step', dir:'up', shed:1, resForm:FORMS[r+1], circle:false});
-  if(r>0 && hasForm(hand,FORMS[r-1])) cand.push({type:'step', dir:'down', shed:1, resForm:FORMS[r-1], circle:false});
+  var upForm = r<4?FORMS[r+1]:null, downForm = r>0?FORMS[r-1]:null;
+  var upMax = upForm?countForm(hand,upForm):0, downMax = downForm?countForm(hand,downForm):0;
+  // up/down moves of every stack size (1..available)
+  for(var k=1;k<=upMax;k++) cand.push({type:'play', dir:'up', count:k, shed:k, resForm:upForm, circle:false});
+  for(var kd=1;kd<=downMax;kd++) cand.push({type:'play', dir:'down', count:kd, shed:kd, resForm:downForm, circle:false});
   // circle (kept as last resort)
   if(hasForm(hand,'circle')) cand.push({type:'circle', shed:1, circle:true});
 
@@ -533,7 +514,7 @@ function botChooseAction(g, seat, rnd){
   function score(m){
     var s = m.shed*10;
     if(handLen - m.shed === 0) s += 1000;                 // winning move
-    if(m.type==='step'){ s += countForm(hand, m.resForm)*2; } // land where I have more cards
+    if(!m.circle){ s += countForm(hand, m.resForm)*2; }   // land where I hold more cards
     if(m.circle) s -= 18;                                  // save the circle
     return s + rnd()*3;
   }
@@ -608,7 +589,8 @@ if (typeof window !== 'undefined') (function(){
       '<line x1="'+(cx-R*1.34)+'" y1="'+cy+'" x2="'+(cx+R*1.34)+'" y2="'+cy+'" stroke="#d8cfb8" stroke-width="1"/>';
     var main;
     if(isCircle){ main = '<circle cx="'+cx+'" cy="'+cy+'" r="'+R*1.18+'" fill="#B58A2C" stroke="#8f6d1f" stroke-width="1.5"/>'; }
-    else { main = glyph(form, w, '#211F1A', Math.max(2, w*0.028)); }
+    // center the glyph on the construction circle (cx,cy); glyph() centers within its own wxw box
+    else { main = '<g transform="translate(0,'+(cy - w/2).toFixed(2)+')">'+ glyph(form, w, '#211F1A', Math.max(2, w*0.028)) +'</g>'; }
     // corner glyphs
     var cg = w*0.20;
     var corner = function(x,y){
@@ -890,7 +872,7 @@ if (typeof window !== 'undefined') (function(){
     var curName = v.players[v.turnSeat] ? v.players[v.turnSeat].name : '';
     if(v.winner){ $('turnbar').innerHTML=''; }
     else if(v.pendingDraw && v.pendingDraw.seat!==v.mySeat){ $('turnbar').innerHTML='<span class="hl">'+esc(curName)+'</span> drew a card…'; }
-    else if(meTurn){ $('turnbar').innerHTML= v.needStartDir? 'You lead off — name the starting direction' : 'Your turn'; }
+    else if(meTurn){ $('turnbar').innerHTML='Your turn'; }
     else { $('turnbar').innerHTML='Waiting for <span class="hl">'+esc(curName)+'</span>'; }
 
     renderSeats(v);
@@ -898,9 +880,6 @@ if (typeof window !== 'undefined') (function(){
     renderActions(v);
     renderLog(v);
     renderWin(v);
-
-    // overlays
-    if(meTurn && v.needStartDir) openStartDir(); else closeOverlay('startDirOverlay');
   }
 
   function renderSeats(v){
@@ -910,7 +889,7 @@ if (typeof window !== 'undefined') (function(){
     var dirArrow = v.direction===CW? '↻':'↺';
     var dirTxt = v.direction===CW? 'Clockwise':'Counter-clockwise';
     var center='<div class="center"><div class="active-card">'+cardSVG(v.activeForm,86)+'</div>'+
-      '<div class="dirbadge"><span class="arrow">'+dirArrow+'</span>'+ (v.needStartDir?'Direction pending':dirTxt) +'</div></div>';
+      '<div class="dirbadge"><span class="arrow">'+dirArrow+'</span>'+ dirTxt +'</div></div>';
     var html=center;
     for(var i=0;i<n;i++){
       var p=v.players[i];
@@ -949,31 +928,21 @@ if (typeof window !== 'undefined') (function(){
   }
 
   function onCardTap(card, v){
-    // circle → open chooser
+    // circle opens the wild chooser (never an instant play)
     if(card.form==='circle'){
       if(v.pendingDraw && v.pendingDraw.seat===v.mySeat){ pendingCircle=card; }
       openCircle(card);
       return;
     }
-    var r=rankOf(v.activeForm), cr=rankOf(card.form);
-    // pending drawn card: single tap plays it
-    if(v.pendingDraw && v.pendingDraw.seat===v.mySeat){
-      submitAction({type:'playDrawn', play:true});
-      uiSel={cards:[],form:null}; return;
-    }
-    if(cr===r){
-      // stack — allow multi-select of same form
-      if(uiSel.form && uiSel.form!==card.form){ uiSel={cards:[],form:null}; }
-      uiSel.form=card.form;
-      var idx=uiSel.cards.indexOf(card.id);
-      if(idx>=0) uiSel.cards.splice(idx,1); else uiSel.cards.push(card.id);
-      if(uiSel.cards.length===0) uiSel.form=null;
-      renderHand(v); renderActions(v);
-    } else {
-      // step up/down — immediate
-      uiSel={cards:[],form:null};
-      submitAction({type:'step', dir: cr===r+1?'up':'down'});
-    }
+    // during a forced-draw resolution the action buttons handle it
+    if(v.pendingDraw && v.pendingDraw.seat===v.mySeat) return;
+    // SELECT ONLY — nothing plays until the Play button. Multi-select within one form.
+    if(uiSel.form && uiSel.form!==card.form){ uiSel={cards:[],form:null}; }
+    uiSel.form=card.form;
+    var idx=uiSel.cards.indexOf(card.id);
+    if(idx>=0) uiSel.cards.splice(idx,1); else uiSel.cards.push(card.id);
+    if(uiSel.cards.length===0) uiSel.form=null;
+    renderHand(v); renderActions(v);
   }
 
   var pendingCircle=null;
@@ -983,7 +952,6 @@ if (typeof window !== 'undefined') (function(){
     if(v.mySeat<0){ return; }
     var meTurn = v.turnSeat===v.mySeat;
     if(!meTurn){ return; }
-    if(v.needStartDir){ $('hint').textContent='Pick a direction to begin.'; return; }
 
     // pending drawn card resolution
     if(v.pendingDraw && v.pendingDraw.seat===v.mySeat){
@@ -998,14 +966,19 @@ if (typeof window !== 'undefined') (function(){
       return;
     }
 
-    // stack confirm
+    // selection confirm — a run up or down the ladder, one seat per card
     if(uiSel.cards.length>0){
-      var k=uiSel.cards.length;
-      bar.appendChild(mkBtn('Stack ×'+k+' · move '+k, 'gold', function(){
-        submitAction({type:'stack', count:k}); uiSel={cards:[],form:null};
-      }));
+      var k=uiSel.cards.length, r=rankOf(v.activeForm), cr=rankOf(uiSel.form), formName=uiSel.form;
+      var up = cr===r+1, down = cr===r-1;
+      if(up||down){
+        bar.appendChild(mkBtn('Play '+k+' '+formName+(k>1?'s':'')+' → move '+k, 'gold', function(){
+          submitAction({type:'play', dir: up?'up':'down', count:k}); uiSel={cards:[],form:null};
+        }));
+        $('hint').textContent=k+' '+formName+(k>1?'s':'')+' — '+(up?'up the ladder · clockwise':'down the ladder · counter-clockwise')+', turn moves '+k+' seat'+(k>1?'s':'')+'.';
+      } else {
+        $('hint').textContent='The centre is '+v.activeForm+' — play the rung just above or below it, not the centre form itself.';
+      }
       bar.appendChild(mkBtn('Clear','ghost', function(){ uiSel={cards:[],form:null}; renderGame(); }));
-      $('hint').textContent='Stacking '+k+' '+uiSel.form+(k>1?'s':'')+' — direction holds, turn moves '+k+' seat'+(k>1?'s':'')+'.';
       return;
     }
 
@@ -1013,9 +986,9 @@ if (typeof window !== 'undefined') (function(){
     var legal = hasAnyLegal(v.myHand, v.activeForm);
     if(!legal){
       bar.appendChild(mkBtn('Draw a card','gold', function(){ submitAction({type:'draw'}); }));
-      $('hint').textContent='No legal step, stack, or circle — you must draw.';
+      $('hint').textContent='No card one rung above or below '+v.activeForm+', and no circle — you must draw.';
     } else {
-      $('hint').textContent='Tap a highlighted card. Adjacent form = step · same form = stack (tap several) · circle = wild.';
+      $('hint').textContent='Centre is '+v.activeForm+'. Tap the rung above (clockwise) or below (counter-clockwise); tap several of one shape to move that many seats. Circle = wild.';
     }
   }
 
