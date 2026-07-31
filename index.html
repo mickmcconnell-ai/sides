@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<meta name="robots" content="noindex,nofollow"/>
+<title>SIDES — playtest table</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<style>
+  :root{
+    --ink:#211F1A; --paper:#E8DFCC; --card:#F4EDDD; --gold:#B58A2C;
+    --line:#C9BFA8; --ink-soft:#5b554a; --gold-soft:#d9b866;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; height:100%;}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:"Helvetica Neue",Arial,system-ui,sans-serif;
+    font-weight:600; letter-spacing:.01em;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:18px 18px 40px;}
+  .mono{font-variant-numeric:tabular-nums;}
+  .kicker{font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--gold); font-weight:700;}
+  .muted{color:var(--ink-soft); font-weight:500;}
+  h1{font-size:64px; line-height:.9; letter-spacing:-.02em; margin:.1em 0 .05em; font-weight:800;}
+  h2{font-size:26px; letter-spacing:-.01em; margin:0 0 6px; font-weight:800;}
+  .topbar{display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--ink); padding:10px 2px; margin-bottom:8px;}
+  .topbar .brand{font-size:13px; letter-spacing:.26em; text-transform:uppercase; font-weight:700;}
+  .topbar .tag{font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--ink-soft);}
+  button{font-family:inherit; font-weight:700; cursor:pointer; border:none;}
+  .btn{
+    background:var(--ink); color:var(--paper); padding:13px 22px; border-radius:2px;
+    font-size:13px; letter-spacing:.14em; text-transform:uppercase; transition:transform .06s, opacity .15s;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn:disabled{opacity:.32; cursor:not-allowed;}
+  .btn.gold{background:var(--gold); color:var(--ink);}
+  .btn.ghost{background:transparent; color:var(--ink); border:1px solid var(--ink);}
+  .btn.sm{padding:9px 14px; font-size:11px; letter-spacing:.12em;}
+  input[type=text]{
+    font-family:inherit; font-weight:700; font-size:16px; color:var(--ink);
+    background:var(--card); border:1px solid var(--ink); border-radius:2px; padding:12px 14px; width:100%;
+    letter-spacing:.06em;
+  }
+  input::placeholder{color:#9c937f; font-weight:600;}
+  .screen{display:none;} .screen.on{display:block;}
+
+  /* ---------- landing ---------- */
+  .hero{display:grid; grid-template-columns:1.1fr .9fr; gap:30px; align-items:center; margin-top:26px;}
+  .ladder{display:flex; align-items:center; gap:6px; justify-content:flex-end;}
+  .ladder .dash{width:14px; height:1px; background:var(--ink);}
+  .card-cta{background:var(--ink); color:var(--paper); border-radius:3px; padding:20px 22px; margin-top:26px;}
+  .card-cta .row{display:flex; gap:26px; flex-wrap:wrap;}
+  .field{margin:16px 0;}
+  .field label{display:block; font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--gold); margin-bottom:7px; font-weight:700;}
+  .actions{display:flex; gap:12px; flex-wrap:wrap; margin-top:8px;}
+  .note{font-size:12.5px; color:var(--ink-soft); font-weight:500; line-height:1.5;}
+
+  /* ---------- lobby ---------- */
+  .lobby-grid{display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:20px;}
+  .panel{border:1px solid var(--ink); border-radius:3px; padding:20px;}
+  .panel.dark{background:var(--ink); color:var(--paper);}
+  .roomcode{font-size:46px; letter-spacing:.14em; font-weight:800; margin:6px 0 2px;}
+  .plist{list-style:none; margin:10px 0 0; padding:0;}
+  .plist li{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line);}
+  .seatdot{width:24px; height:24px; border-radius:50%; background:var(--ink); color:var(--paper); display:grid; place-items:center; font-size:11px; font-weight:800;}
+  .pill{font-size:10px; letter-spacing:.12em; text-transform:uppercase; padding:3px 7px; border-radius:2px; font-weight:700;}
+  .pill.you{background:var(--gold); color:var(--ink);}
+  .pill.bot{background:var(--ink); color:var(--paper);}
+  .pill.off{background:#c0362c; color:#fff;}
+  .opt{display:flex; align-items:flex-start; gap:10px; margin:14px 0; cursor:pointer;}
+  .opt input{margin-top:3px; width:16px; height:16px; accent-color:var(--gold);}
+
+  /* ---------- game ---------- */
+  .game-grid{display:grid; grid-template-columns:1fr 300px; gap:18px; margin-top:8px;}
+  .table{position:relative; background:radial-gradient(120% 120% at 50% 40%, #efe7d4 0%, var(--paper) 70%); border:1px solid var(--ink); border-radius:6px; padding:14px; min-height:520px;}
+  .seatring{position:relative; height:300px; margin:2px auto 0; max-width:560px;}
+  .seat{position:absolute; transform:translate(-50%,-50%); text-align:center; width:120px;}
+  .seat .chip{display:inline-flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--ink); border-radius:40px; padding:6px 12px; font-size:13px; font-weight:700;}
+  .seat.turn .chip{background:var(--gold); border-color:var(--gold); box-shadow:0 0 0 4px rgba(181,138,44,.22);}
+  .seat .cnt{font-size:11px; color:var(--ink-soft); margin-top:4px; letter-spacing:.08em; text-transform:uppercase; font-weight:600;}
+  .seat.turn .cnt{color:var(--ink);}
+  .seat .badge{font-size:9px; letter-spacing:.1em; text-transform:uppercase; font-weight:800; padding:1px 5px; border-radius:2px;}
+  .badge.you{background:var(--gold); color:var(--ink);} .badge.bot{background:var(--ink); color:var(--paper);} .badge.off{background:#c0362c; color:#fff;}
+  .center{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center;}
+  .center .active-card{filter:drop-shadow(0 6px 14px rgba(33,31,26,.22));}
+  .dirbadge{margin-top:10px; font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); font-weight:700; display:inline-flex; gap:8px; align-items:center;}
+  .dirbadge .arrow{font-size:20px; color:var(--gold);}
+
+  .turnbar{text-align:center; margin:6px 0 2px; min-height:24px; font-size:14px; letter-spacing:.06em; font-weight:700;}
+  .turnbar .hl{color:var(--gold);}
+
+  .handzone{margin-top:8px;}
+  .handrow{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; min-height:150px; align-items:flex-end; padding:6px;}
+  .pcard{position:relative; cursor:pointer; transition:transform .12s, box-shadow .12s; border-radius:8px;}
+  .pcard.play{cursor:pointer;}
+  .pcard.dim{opacity:.42; cursor:not-allowed;}
+  .pcard.sel{transform:translateY(-16px);}
+  .pcard.play::after{content:""; position:absolute; inset:-3px; border:2px solid var(--gold); border-radius:10px; pointer-events:none;}
+  .pcard.sel::after{border-color:var(--ink); box-shadow:0 10px 18px rgba(33,31,26,.25);}
+
+  .actionbar{display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:10px; min-height:46px;}
+  .hint{text-align:center; font-size:12.5px; color:var(--ink-soft); font-weight:500; margin-top:4px;}
+
+  .side{display:flex; flex-direction:column; gap:14px;}
+  .logbox{border:1px solid var(--ink); border-radius:3px; padding:12px 14px; height:300px; overflow-y:auto; background:var(--card); font-size:12.5px; line-height:1.55; font-weight:500;}
+  .logbox .le{padding:3px 0; border-bottom:1px dotted var(--line);}
+  .logbox .le b{font-weight:800;}
+  .logbox .le .g{color:var(--gold); font-weight:800;}
+  .ref{border:1px solid var(--ink); border-radius:3px; padding:0; overflow:hidden;}
+  .ref summary{padding:12px 14px; cursor:pointer; font-size:12px; letter-spacing:.16em; text-transform:uppercase; font-weight:700; list-style:none;}
+  .ref summary::-webkit-details-marker{display:none;}
+  .ref .rbody{padding:0 14px 14px; font-size:12.5px; line-height:1.6; font-weight:500; color:var(--ink);}
+  .ref .rbody b{font-weight:800;}
+
+  /* choose panels */
+  .overlay{position:fixed; inset:0; background:rgba(33,31,26,.55); display:none; place-items:center; z-index:50; padding:20px;}
+  .overlay.on{display:grid;}
+  .modal{background:var(--card); border:1px solid var(--ink); border-radius:5px; padding:24px; max-width:440px; width:100%; text-align:center;}
+  .formpick{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:14px 0;}
+  .formpick .fb{background:var(--card); border:1px solid var(--ink); border-radius:6px; padding:8px; cursor:pointer;}
+  .formpick .fb.sel{background:var(--gold); border-color:var(--gold);}
+  .dirpick{display:flex; gap:10px; justify-content:center; margin:10px 0 18px;}
+
+  .banner{background:var(--ink); color:var(--paper); border-radius:4px; padding:14px 18px; margin-top:14px; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;}
+  .banner .win{font-size:20px; font-weight:800;} .banner .win .g{color:var(--gold-soft);}
+  .status{font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-soft); font-weight:700;}
+  .status .dot{display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--gold); margin-right:6px;}
+  .footer{border-top:1px solid var(--ink); margin-top:26px; padding-top:10px; display:flex; justify-content:space-between; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-soft);}
+  @media(max-width:900px){
+    h1{font-size:44px;}
+    .hero{grid-template-columns:1fr; gap:16px;}
+    .ladder{justify-content:flex-start;}
+    .lobby-grid,.game-grid{grid-template-columns:1fr;}
+    .side{flex-direction:column;}
+    .logbox{height:180px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">SIDES</div>
+    <div class="tag" id="statusTag">playtest table · core test 03</div>
+  </div>
+
+  <!-- ===================== LANDING ===================== -->
+  <section class="screen on" id="screen-landing">
+    <div class="hero">
+      <div>
+        <div class="kicker">Playtest build</div>
+        <h1>SIDES</h1>
+        <div style="font-size:20px; letter-spacing:.02em; margin:6px 0 2px; font-weight:800;">Play follows form.</div>
+        <p class="note" style="max-width:420px; margin-top:10px;">A remote table for the founders. One person hosts, everyone else joins with a four-letter code. No sign-in, no install — it runs peer-to-peer straight in the browser. Empty seats can be filled with bots so two people can still test a real 3–6 handed game.</p>
+      </div>
+      <div class="ladder" id="heroLadder"></div>
+    </div>
+
+    <div class="card-cta">
+      <div class="field">
+        <label>Your name at the table</label>
+        <input type="text" id="nameInput" maxlength="14" placeholder="e.g. Mick" autocomplete="off"/>
+      </div>
+      <div class="row">
+        <div style="flex:1; min-width:240px;">
+          <div class="kicker" style="color:var(--gold-soft);">Start a table</div>
+          <p class="note" style="color:#cfc6b0;">You become the host and the source of truth for the game.</p>
+          <button class="btn gold" id="hostBtn">Host a table</button>
+        </div>
+        <div style="flex:1; min-width:240px;">
+          <div class="kicker" style="color:var(--gold-soft);">Join a table</div>
+          <div class="field" style="margin:8px 0;">
+            <input type="text" id="codeInput" maxlength="4" placeholder="CODE" style="text-transform:uppercase; letter-spacing:.3em;"/>
+          </div>
+          <button class="btn ghost" id="joinBtn" style="color:var(--paper); border-color:var(--paper);">Join with code</button>
+        </div>
+      </div>
+    </div>
+    <div class="note" id="landingMsg" style="margin-top:14px; min-height:18px;"></div>
+  </section>
+
+  <!-- ===================== LOBBY ===================== -->
+  <section class="screen" id="screen-lobby">
+    <div class="kicker">Table lobby</div>
+    <h2 id="lobbyTitle">Waiting for players</h2>
+    <div class="lobby-grid">
+      <div class="panel dark" id="codePanel">
+        <div class="kicker" style="color:var(--gold-soft);">Room code — share this</div>
+        <div class="roomcode mono" id="roomCode">----</div>
+        <div class="note" style="color:#cfc6b0;">Others open this same page, choose <b>Join</b>, and type the code. Keep this tab open — the game lives on the host.</div>
+        <div class="actions" style="margin-top:14px;">
+          <button class="btn gold sm" id="copyCodeBtn">Copy code</button>
+          <button class="btn ghost sm" id="copyLinkBtn" style="color:var(--paper); border-color:var(--paper);">Copy invite link</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="kicker">At the table <span id="playerCount"></span></div>
+        <ul class="plist" id="lobbyList"></ul>
+        <div id="hostControls" style="margin-top:16px;">
+          <div class="actions">
+            <button class="btn ghost sm" id="addBotBtn">+ Add bot</button>
+            <button class="btn ghost sm" id="removeBotBtn">− Remove bot</button>
+          </div>
+          <label class="opt" style="margin-top:16px;">
+            <input type="checkbox" id="plus1Opt"/>
+            <span class="note"><b>+1 starter card</b> (fairness variant). Deals the first player 10 cards instead of 9 to offset the first-move edge the sim found. Off = base game.</span>
+          </label>
+          <button class="btn gold" id="startBtn" style="margin-top:8px; width:100%;">Deal & start</button>
+          <div class="hint" id="startHint" style="text-align:left;"></div>
+        </div>
+        <div id="guestWait" class="note" style="margin-top:16px; display:none;">Waiting for the host to deal…</div>
+      </div>
+    </div>
+    <div class="note" style="margin-top:16px;"><button class="btn ghost sm" id="leaveLobbyBtn">Leave table</button></div>
+  </section>
+
+  <!-- ===================== GAME ===================== -->
+  <section class="screen" id="screen-game">
+    <div class="game-grid">
+      <div class="table">
+        <div class="turnbar" id="turnbar"></div>
+        <div class="seatring" id="seatring"></div>
+        <div class="handzone">
+          <div class="handrow" id="handrow"></div>
+          <div class="actionbar" id="actionbar"></div>
+          <div class="hint" id="hint"></div>
+        </div>
+        <div class="banner" id="winBanner" style="display:none;">
+          <div class="win" id="winText"></div>
+          <div id="winControls"></div>
+        </div>
+      </div>
+      <div class="side">
+        <div class="status"><span class="dot"></span><span id="connStatus">Connected</span></div>
+        <div class="logbox" id="logbox"></div>
+        <details class="ref">
+          <summary>Rules reference ▾</summary>
+          <div class="rbody">
+            <p><b>Ladder:</b> Line ▸ Triangle ▸ Square ▸ Pentagon ▸ Hexagon. More sides sit higher.</p>
+            <p><b>Step</b> — play the form one level above or below the active form. Up = clockwise, down = counter-clockwise. Sets form + direction, moves one seat.</p>
+            <p><b>Stack</b> — play one or more <i>exact</i> matches of the active form. Direction unchanged. Moves one seat per card.</p>
+            <p><b>Circle</b> — wild, legal on any form. Name the next form and choose a direction. Moves one seat. Never stacks.</p>
+            <p><b>Walls</b> — no wrap. At a Line you can only step up; at a Hexagon only down.</p>
+            <p><b>Blocked</b> — if you can't step, stack, or circle, draw one. Play it if it's legal, otherwise pass.</p>
+            <p><b>Win</b> — first to empty their hand, even on a stack or circle.</p>
+          </div>
+        </details>
+        <button class="btn ghost sm" id="leaveGameBtn">Leave game</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <div>Play follows form</div>
+    <div>Confidential working prototype · July 2026</div>
+  </div>
+</div>
+
+<!-- circle chooser overlay -->
+<div class="overlay" id="circleOverlay">
+  <div class="modal">
+    <div class="kicker">The circle is wild</div>
+    <h2 style="margin:8px 0 2px;">Name the next form</h2>
+    <p class="note">Choose which form becomes active, then pick a direction.</p>
+    <div class="formpick" id="circleForms"></div>
+    <div class="kicker" style="margin-top:8px;">Direction</div>
+    <div class="dirpick" id="circleDirs"></div>
+    <div class="actions" style="justify-content:center;">
+      <button class="btn ghost sm" id="circleCancel">Cancel</button>
+      <button class="btn gold" id="circleConfirm" disabled>Play circle</button>
+    </div>
+  </div>
+</div>
+
+<!-- start-direction overlay -->
+<div class="overlay" id="startDirOverlay">
+  <div class="modal">
+    <div class="kicker">You lead off</div>
+    <h2 style="margin:8px 0 2px;">Name the starting direction</h2>
+    <p class="note">The player left of the dealer sets which way play first travels.</p>
+    <div class="dirpick" id="startDirs" style="justify-content:center;"></div>
+  </div>
+</div>
+
+<script>
+/* =======================================================================
+   ===ENGINE START===  (pure logic — also extracted for headless tests)
+   ======================================================================= */
+var FORMS = ['line','triangle','square','pentagon','hexagon'];
+var CW = 1, CCW = -1;
+function rankOf(f){ return FORMS.indexOf(f); }
+function mod(a,n){ return ((a % n) + n) % n; }
+
+function buildDeck(){
+  var deck = [], id = 0, i, f, k;
+  for(i=0;i<FORMS.length;i++){ f=FORMS[i]; for(k=0;k<16;k++) deck.push({id:'c'+(id++), form:f}); }
+  for(k=0;k<6;k++) deck.push({id:'c'+(id++), form:'circle'});
+  return deck; // 86
+}
+function shuffle(arr, rnd){
+  rnd = rnd || Math.random;
+  for(var i=arr.length-1;i>0;i--){ var j=Math.floor(rnd()*(i+1)); var t=arr[i]; arr[i]=arr[j]; arr[j]=t; }
+  return arr;
+}
+function countForm(hand, f){ var n=0; for(var i=0;i<hand.length;i++) if(hand[i].form===f) n++; return n; }
+function hasForm(hand, f){ return countForm(hand,f)>0; }
+
+// legal options for a hand against the active form
+function legalPlays(hand, activeForm){
+  var r = rankOf(activeForm);
+  return {
+    stepUp:   r<4 && hasForm(hand, FORMS[r+1]),
+    stepDown: r>0 && hasForm(hand, FORMS[r-1]),
+    stackMax: countForm(hand, activeForm),
+    circle:   hasForm(hand,'circle')
+  };
+}
+function hasAnyLegal(hand, activeForm){
+  var p = legalPlays(hand, activeForm);
+  return p.stepUp || p.stepDown || p.stackMax>0 || p.circle;
+}
+// is a single card playable on the active form?
+function cardPlayable(card, activeForm){
+  if(card.form==='circle') return true;
+  var r = rankOf(activeForm), cr = rankOf(card.form);
+  if(cr===r) return true;              // stack of 1
+  if(cr===r+1 && r<4) return true;     // step up
+  if(cr===r-1 && r>0) return true;     // step down
+  return false;
+}
+
+function newGame(playerDescs, opts){
+  // playerDescs: [{id,name,isBot}]  ; opts: {plus1, dealerSeat, rnd}
+  opts = opts || {};
+  var rnd = opts.rnd || Math.random;
+  var deck = shuffle(buildDeck(), rnd);
+  var n = playerDescs.length;
+  var players = playerDescs.map(function(p,i){ return {id:p.id, name:p.name, isBot:!!p.isBot, connected:p.connected!==false, seat:i, hand:[]}; });
+  var dealerSeat = (opts.dealerSeat||0) % n;
+  var starterSeat = mod(dealerSeat+1, n);
+  // deal 9 each (starter gets +1 if variant on)
+  for(var s=0;s<9;s++){ for(var i=0;i<n;i++){ players[i].hand.push(deck.pop()); } }
+  if(opts.plus1) players[starterSeat].hand.push(deck.pop());
+  // reveal a non-circle starting form
+  var discard = [];
+  var top = deck.pop();
+  while(top.form==='circle'){ deck.unshift(top); shuffle(deck, rnd); top = deck.pop(); }
+  discard.push(top);
+  return {
+    players: players,
+    deck: deck,
+    discard: discard,
+    activeForm: top.form,
+    direction: CW,
+    turnSeat: starterSeat,
+    dealerSeat: dealerSeat,
+    needStartDir: true,
+    pendingDraw: null,      // {seat, cardId}
+    winner: null,
+    started: true,
+    plus1: !!opts.plus1,
+    log: []
+  };
+}
+
+function topForm(g){ return g.activeForm; }
+function seatOf(g, id){ for(var i=0;i<g.players.length;i++) if(g.players[i].id===id) return i; return -1; }
+function pushLog(g, entry){ g.log.push(entry); if(g.log.length>120) g.log.shift(); }
+
+function drawFromDeck(g, rnd){
+  rnd = rnd || Math.random;
+  if(g.deck.length===0){
+    // recycle: keep top discard, reshuffle the rest into deck
+    if(g.discard.length<=1) return null; // nothing to draw (extreme edge)
+    var keep = g.discard.pop();
+    g.deck = shuffle(g.discard, rnd);
+    g.discard = [keep];
+  }
+  return g.deck.length ? g.deck.pop() : null;
+}
+
+function advance(g, steps){ g.turnSeat = mod(g.turnSeat + g.direction*steps, g.players.length); }
+function removeCards(hand, ids){
+  ids.forEach(function(id){ for(var i=0;i<hand.length;i++){ if(hand[i].id===id){ hand.splice(i,1); return; } } });
+}
+function takeForm(hand, form, count){
+  var taken=[], i=0;
+  while(count>0 && i<hand.length){ if(hand[i].form===form){ taken.push(hand[i]); hand.splice(i,1); count--; } else i++; }
+  return taken;
+}
+function checkWin(g, seat){ if(g.players[seat].hand.length===0){ g.winner = g.players[seat].id; } }
+
+/* Apply a validated action. Returns {ok:true} or {ok:false,error}.
+   action.type: 'startDir' | 'step' | 'stack' | 'circle' | 'draw' | 'playDrawn' | 'pass'
+*/
+function applyAction(g, seat, action, rnd){
+  rnd = rnd || Math.random;
+  if(g.winner) return {ok:false,error:'game over'};
+  if(seat!==g.turnSeat) return {ok:false,error:'not your turn'};
+  var pl = g.players[seat];
+  var name = pl.name;
+
+  // resolve a pending drawn card first
+  if(g.pendingDraw){
+    if(g.pendingDraw.seat!==seat) return {ok:false,error:'no pending'};
+    if(action.type!=='playDrawn') return {ok:false,error:'resolve draw first'};
+    var card = null, h=pl.hand;
+    for(var i=0;i<h.length;i++) if(h[i].id===g.pendingDraw.cardId){ card=h[i]; break; }
+    g.pendingDraw = null;
+    if(!action.play || !card){ advance(g,1); pushLog(g,{seat:seat,name:name,kind:'pass',text:'kept the draw and passed'}); return {ok:true}; }
+    // play the drawn card as its natural action
+    return playSingleCard(g, seat, card, action, 'drew & ');
+  }
+
+  if(g.needStartDir){
+    if(action.type!=='startDir') return {ok:false,error:'choose start direction'};
+    g.direction = (action.dir===CCW)?CCW:CW;
+    g.needStartDir = false;
+    pushLog(g,{seat:seat,name:name,kind:'dir',text:'leads off '+(g.direction===CW?'clockwise':'counter-clockwise')});
+    return {ok:true};
+  }
+
+  var r = rankOf(g.activeForm);
+  if(action.type==='step'){
+    var up = action.dir==='up';
+    var nf = up ? (r<4?FORMS[r+1]:null) : (r>0?FORMS[r-1]:null);
+    if(!nf) return {ok:false,error:'wall'};
+    if(!hasForm(pl.hand,nf)) return {ok:false,error:'no card'};
+    var taken = takeForm(pl.hand, nf, 1);
+    g.discard.push(taken[0]);
+    g.activeForm = nf;
+    g.direction = up?CW:CCW;
+    checkWin(g,seat);
+    pushLog(g,{seat:seat,name:name,kind:'step',text:'stepped '+(up?'up':'down')+' to '+nf+(up?' · clockwise':' · counter-clockwise')});
+    if(!g.winner) advance(g,1);
+    return {ok:true};
+  }
+  if(action.type==='stack'){
+    var cnt = action.count|0;
+    var avail = countForm(pl.hand, g.activeForm);
+    if(cnt<1 || cnt>avail) return {ok:false,error:'bad stack count'};
+    var t = takeForm(pl.hand, g.activeForm, cnt);
+    for(var i=0;i<t.length;i++) g.discard.push(t[i]);
+    checkWin(g,seat);
+    pushLog(g,{seat:seat,name:name,kind:'stack',text:'stacked '+cnt+' '+g.activeForm+(cnt>1?'s':'')+' · moves '+cnt});
+    if(!g.winner) advance(g,cnt);
+    return {ok:true};
+  }
+  if(action.type==='circle'){
+    if(!hasForm(pl.hand,'circle')) return {ok:false,error:'no circle'};
+    var nform = action.namedForm;
+    if(FORMS.indexOf(nform)<0) return {ok:false,error:'bad form'};
+    var t2 = takeForm(pl.hand,'circle',1);
+    g.discard.push(t2[0]);
+    g.activeForm = nform;
+    g.direction = (action.namedDir===CCW)?CCW:CW;
+    checkWin(g,seat);
+    pushLog(g,{seat:seat,name:name,kind:'circle',text:'played the circle → '+nform+' · '+(g.direction===CW?'clockwise':'counter-clockwise')});
+    if(!g.winner) advance(g,1);
+    return {ok:true};
+  }
+  if(action.type==='draw'){
+    if(hasAnyLegal(pl.hand, g.activeForm)) return {ok:false,error:'you have a legal play'};
+    var d = drawFromDeck(g, rnd);
+    if(!d){ advance(g,1); pushLog(g,{seat:seat,name:name,kind:'pass',text:'could not draw — passed'}); return {ok:true}; }
+    pl.hand.push(d);
+    if(cardPlayable(d, g.activeForm)){
+      g.pendingDraw = {seat:seat, cardId:d.id, form:d.form};
+      pushLog(g,{seat:seat,name:name,kind:'draw',text:'drew a card — it is playable'});
+      return {ok:true, drew:d};
+    } else {
+      advance(g,1);
+      pushLog(g,{seat:seat,name:name,kind:'draw',text:'drew a card — no play, passed'});
+      return {ok:true, drew:d};
+    }
+  }
+  return {ok:false,error:'unknown action'};
+}
+
+// play one specific card (used for the drawn-card case)
+function playSingleCard(g, seat, card, action, prefix){
+  var pl = g.players[seat], r = rankOf(g.activeForm), cr = rankOf(card.form), name=pl.name;
+  if(card.form==='circle'){
+    var nform = action.namedForm, ndir = (action.namedDir===CCW)?CCW:CW;
+    if(FORMS.indexOf(nform)<0) nform = FORMS[0];
+    removeCards(pl.hand,[card.id]); g.discard.push(card);
+    g.activeForm=nform; g.direction=ndir; checkWin(g,seat);
+    pushLog(g,{seat:seat,name:name,kind:'circle',text:prefix+'played the circle → '+nform+' · '+(ndir===CW?'clockwise':'counter-clockwise')});
+    if(!g.winner) advance(g,1); return {ok:true};
+  }
+  removeCards(pl.hand,[card.id]); g.discard.push(card);
+  if(cr===r){ // stack of 1, direction stays
+    checkWin(g,seat);
+    pushLog(g,{seat:seat,name:name,kind:'stack',text:prefix+'played a '+card.form+' · direction holds'});
+    if(!g.winner) advance(g,1); return {ok:true};
+  }
+  var up = cr===r+1;
+  g.activeForm=card.form; g.direction=up?CW:CCW; checkWin(g,seat);
+  pushLog(g,{seat:seat,name:name,kind:'step',text:prefix+'stepped '+(up?'up':'down')+' to '+card.form});
+  if(!g.winner) advance(g,1); return {ok:true};
+}
+
+/* ---- bot: pick an action object for the current seat ---- */
+function botChooseAction(g, seat, rnd){
+  rnd = rnd || Math.random;
+  var pl = g.players[seat], hand = pl.hand, af = g.activeForm, r = rankOf(af);
+  if(g.pendingDraw && g.pendingDraw.seat===seat){
+    // play the drawn card if it can be played, choosing form/dir if it's a circle
+    var card=null; for(var i=0;i<hand.length;i++) if(hand[i].id===g.pendingDraw.cardId) card=hand[i];
+    if(card && cardPlayable(card, af)){
+      if(card.form==='circle'){ var nf=botNameForm(hand,rnd); return {type:'playDrawn', play:true, namedForm:nf, namedDir: rnd()<.5?CW:CCW}; }
+      return {type:'playDrawn', play:true};
+    }
+    return {type:'playDrawn', play:false};
+  }
+  if(g.needStartDir){ return {type:'startDir', dir: rnd()<.5?CW:CCW}; }
+
+  var cand = [];
+  // stacks
+  var stackMax = countForm(hand, af);
+  for(var k=1;k<=stackMax;k++) cand.push({type:'stack', count:k, shed:k, keeps: (stackMax-k), circle:false});
+  // steps
+  if(r<4 && hasForm(hand,FORMS[r+1])) cand.push({type:'step', dir:'up', shed:1, resForm:FORMS[r+1], circle:false});
+  if(r>0 && hasForm(hand,FORMS[r-1])) cand.push({type:'step', dir:'down', shed:1, resForm:FORMS[r-1], circle:false});
+  // circle (kept as last resort)
+  if(hasForm(hand,'circle')) cand.push({type:'circle', shed:1, circle:true});
+
+  if(cand.length===0) return {type:'draw'};
+
+  var handLen = hand.length;
+  function score(m){
+    var s = m.shed*10;
+    if(handLen - m.shed === 0) s += 1000;                 // winning move
+    if(m.type==='step'){ s += countForm(hand, m.resForm)*2; } // land where I have more cards
+    if(m.circle) s -= 18;                                  // save the circle
+    return s + rnd()*3;
+  }
+  var best=cand[0], bs=score(cand[0]);
+  for(var c=1;c<cand.length;c++){ var sc=score(cand[c]); if(sc>bs){ bs=sc; best=cand[c]; } }
+  if(best.type==='circle'){ best.namedForm = botNameForm(hand,rnd); best.namedDir = rnd()<.5?CW:CCW; }
+  return best;
+}
+function botNameForm(hand, rnd){
+  var best=FORMS[0], bc=-1;
+  for(var i=0;i<FORMS.length;i++){ var c=countForm(hand,FORMS[i]); if(c>bc){ bc=c; best=FORMS[i]; } }
+  if(bc<=0){ best = FORMS[Math.floor((rnd||Math.random)()*FORMS.length)]; } // no matching form held → arbitrary
+  return best;
+}
+/* ===ENGINE END=== */
+
+/* =======================================================================
+   NETWORK + UI  (browser only)
+   ======================================================================= */
+if (typeof window !== 'undefined') (function(){
+  var CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var MAX_PLAYERS = 6;
+
+  var state = {
+    role:null,          // 'host' | 'client'
+    myName:'',
+    myId:null,
+    peer:null,
+    hostConn:null,      // client -> host connection
+    conns:{},           // host: id -> DataConnection
+    roomCode:null,
+    game:null,          // host: authoritative game ; client: null
+    lobby:null,         // {players:[{id,name,isBot,connected,seat}], plus1, started, roomCode}
+    view:null,          // client-side render view
+    botTimer:null,
+    seatDesc:[]         // host lobby players (pre-game)
+  };
+
+  /* ---------- tiny DOM helpers ---------- */
+  function $(id){ return document.getElementById(id); }
+  function show(screen){ ['landing','lobby','game'].forEach(function(s){ $('screen-'+s).classList.toggle('on', s===screen); }); }
+  function esc(s){ return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+
+  /* ---------- SVG card faces ---------- */
+  function polyPoints(cx,cy,rad,sides,rotDeg){
+    var pts=[], a0=(rotDeg||0)*Math.PI/180;
+    for(var i=0;i<sides;i++){ var a=a0 + i*2*Math.PI/sides; pts.push([cx+rad*Math.cos(a), cy+rad*Math.sin(a)]); }
+    return pts.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ');
+  }
+  // returns svg string for a form glyph centered in a viewBox 0..size
+  function glyph(form, size, stroke, sw){
+    var c=size/2, r=size*0.30;
+    stroke = stroke||'#211F1A'; sw = sw||2;
+    var s='';
+    if(form==='line'){ s='<line x1="'+(c-r)+'" y1="'+c+'" x2="'+(c+r)+'" y2="'+c+'" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linecap="round"/>'; }
+    else if(form==='triangle'){ s='<polygon points="'+polyPoints(c,c,r,3,90)+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linejoin="round"/>'; }
+    else if(form==='square'){ s='<polygon points="'+polyPoints(c,c,r,4,45)+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linejoin="round"/>'; }
+    else if(form==='pentagon'){ s='<polygon points="'+polyPoints(c,c,r,5,-90)+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linejoin="round"/>'; }
+    else if(form==='hexagon'){ s='<polygon points="'+polyPoints(c,c,r,6,0)+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linejoin="round"/>'; }
+    else if(form==='circle'){ s='<circle cx="'+c+'" cy="'+c+'" r="'+(r*1.02)+'" fill="#B58A2C" stroke="#8f6d1f" stroke-width="1"/>'; }
+    return s;
+  }
+  // full card svg; w in px
+  function cardSVG(form, w){
+    w = w||96; var h=Math.round(w*1.4);
+    var isCircle = form==='circle';
+    var cardFill = '#F4EDDD', border='#211F1A';
+    var cx=w/2, cy=h/2, R=w*0.30;
+    var construction = isCircle ? '' :
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+R*1.34+'" fill="none" stroke="#c9bfa8" stroke-width="1"/>'+
+      '<line x1="'+cx+'" y1="'+(cy-R*1.34)+'" x2="'+cx+'" y2="'+(cy+R*1.34)+'" stroke="#d8cfb8" stroke-width="1"/>'+
+      '<line x1="'+(cx-R*1.34)+'" y1="'+cy+'" x2="'+(cx+R*1.34)+'" y2="'+cy+'" stroke="#d8cfb8" stroke-width="1"/>';
+    var main;
+    if(isCircle){ main = '<circle cx="'+cx+'" cy="'+cy+'" r="'+R*1.18+'" fill="#B58A2C" stroke="#8f6d1f" stroke-width="1.5"/>'; }
+    else { main = glyph(form, w, '#211F1A', Math.max(2, w*0.028)); }
+    // corner glyphs
+    var cg = w*0.20;
+    var corner = function(x,y){
+      return '<g transform="translate('+x+','+y+')">'+ glyph(form, cg, isCircle?'#B58A2C':'#211F1A', 1.3) +'</g>';
+    };
+    var svg = '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" xmlns="http://www.w3.org/2000/svg">'+
+      '<rect x="1.5" y="1.5" width="'+(w-3)+'" height="'+(h-3)+'" rx="7" fill="'+cardFill+'" stroke="'+border+'" stroke-width="1.5"/>'+
+      '<rect x="5" y="5" width="'+(w-10)+'" height="'+(h-10)+'" rx="5" fill="none" stroke="#d8cfb8" stroke-width="1"/>'+
+      construction + main +
+      corner(w*0.04, h*0.03) +
+      '<g transform="translate('+(w*0.96)+','+(h*0.97)+') rotate(180)">'+ glyph(form, cg, isCircle?'#B58A2C':'#211F1A',1.3) +'</g>'+
+      '</svg>';
+    return svg;
+  }
+
+  /* ---------- hero ladder ---------- */
+  function renderHero(){
+    var el=$('heroLadder'); var forms=['line','triangle','square','pentagon','hexagon','circle'];
+    var html='';
+    forms.forEach(function(f,i){
+      html+='<div style="width:60px; height:84px;">'+cardSVG(f,60)+'</div>';
+      if(i<forms.length-1) html+='<div class="dash"></div>';
+    });
+    el.innerHTML=html;
+  }
+
+  /* ============================ HOST ============================ */
+  function genCode(){ var s=''; for(var i=0;i<4;i++) s+=CODE_ALPHABET[Math.floor(Math.random()*CODE_ALPHABET.length)]; return s; }
+
+  function startHost(){
+    state.role='host';
+    var code = genCode();
+    state.roomCode = code;
+    state.myId = 'host';
+    // host is seat 0
+    state.seatDesc = [{id:'host', name:state.myName, isBot:false, connected:true}];
+    var peer = new Peer('sides'+code, {debug:1});
+    state.peer = peer;
+    setLanding('Creating your table…');
+    peer.on('open', function(){
+      show('lobby'); renderLobby();
+      setConn('Hosting · you are the table');
+    });
+    peer.on('connection', function(conn){ hostOnConnection(conn); });
+    peer.on('error', function(err){
+      if(err.type==='unavailable-id'){ // code collision, retry
+        try{peer.destroy();}catch(e){}
+        state.myName=state.myName; startHost(); return;
+      }
+      setLanding('Connection error: '+err.type+'. Try again.');
+    });
+  }
+
+  function hostOnConnection(conn){
+    conn.on('open', function(){
+      state.conns[conn.peer]=conn;
+    });
+    conn.on('data', function(msg){ hostHandleMsg(conn, msg); });
+    conn.on('close', function(){ hostOnDisconnect(conn.peer); });
+    conn.on('error', function(){});
+  }
+
+  function hostHandleMsg(conn, msg){
+    if(msg.t==='hello'){
+      // join attempt
+      if(state.game){ conn.send({t:'denied', reason:'Game already in progress.'}); return; }
+      if(state.seatDesc.filter(function(p){return !p.isBot;}).length + state.seatDesc.filter(function(p){return p.isBot;}).length >= MAX_PLAYERS){
+        conn.send({t:'denied', reason:'Table is full.'}); return;
+      }
+      // reuse the connection peer id as player id
+      var exists = state.seatDesc.some(function(p){return p.id===conn.peer;});
+      if(!exists){
+        state.seatDesc.push({id:conn.peer, name:(msg.name||'Player').slice(0,14), isBot:false, connected:true});
+      }
+      conn.send({t:'welcome', youId:conn.peer, roomCode:state.roomCode});
+      broadcastLobby();
+      return;
+    }
+    if(msg.t==='action' && state.game){
+      var seat = seatOf(state.game, conn.peer);
+      if(seat<0) return;
+      var res = applyAction(state.game, seat, msg.action);
+      if(!res.ok){ conn.send({t:'error', msg:res.error}); }
+      afterStateChange();
+    }
+  }
+
+  function hostOnDisconnect(peerId){
+    delete state.conns[peerId];
+    if(state.game){
+      // convert to bot so the game keeps flowing
+      var seat = seatOf(state.game, peerId);
+      if(seat>=0){
+        state.game.players[seat].isBot = true;
+        state.game.players[seat].connected = false;
+        pushLog(state.game,{seat:seat,name:state.game.players[seat].name,kind:'sys',text:'disconnected — a bot took the seat'});
+        afterStateChange();
+      }
+    } else {
+      state.seatDesc = state.seatDesc.filter(function(p){return p.id!==peerId;});
+      broadcastLobby();
+    }
+  }
+
+  function broadcastLobby(){
+    var lob = { roomCode:state.roomCode, started:false,
+      players: state.seatDesc.map(function(p,i){ return {id:p.id,name:p.name,isBot:p.isBot,connected:p.connected,seat:i}; }),
+      plus1: $('plus1Opt') ? $('plus1Opt').checked : false };
+    state.lobby = lob;
+    renderLobby();
+    Object.keys(state.conns).forEach(function(k){ try{ state.conns[k].send({t:'lobby', lobby:lob}); }catch(e){} });
+  }
+
+  function hostAddBot(){
+    if(state.seatDesc.length>=MAX_PLAYERS) return;
+    var n = state.seatDesc.filter(function(p){return p.isBot;}).length+1;
+    var botNames=['Ada','Bex','Cy','Dot','Eero'];
+    state.seatDesc.push({id:'bot'+Date.now()+Math.floor(Math.random()*999), name:botNames[(n-1)%botNames.length]+' (bot)', isBot:true, connected:true});
+    broadcastLobby();
+  }
+  function hostRemoveBot(){
+    for(var i=state.seatDesc.length-1;i>=0;i--){ if(state.seatDesc[i].isBot){ state.seatDesc.splice(i,1); break; } }
+    broadcastLobby();
+  }
+
+  function hostStart(){
+    var n=state.seatDesc.length;
+    if(n<3 || n>6) return;
+    var plus1 = $('plus1Opt').checked;
+    state.game = newGame(state.seatDesc.map(function(p){return {id:p.id,name:p.name,isBot:p.isBot,connected:p.connected};}), {plus1:plus1, dealerSeat:0});
+    pushLog(state.game,{kind:'sys',text:'Dealt '+(plus1?'9 (+1 to starter)':'9')+' each · '+state.game.activeForm+' revealed'});
+    afterStateChange();
+  }
+
+  function hostRestart(){
+    if(!state.game) return;
+    var prevDealer = state.game.dealerSeat;
+    var descs = state.game.players.map(function(p){return {id:p.id,name:p.name,isBot:p.isBot,connected:p.connected};});
+    state.game = newGame(descs, {plus1:state.game.plus1, dealerSeat:mod(prevDealer+1, descs.length)});
+    pushLog(state.game,{kind:'sys',text:'New hand · deal passes left · '+state.game.activeForm+' revealed'});
+    afterStateChange();
+  }
+
+  // after any host-side game mutation: broadcast personalized views, render, schedule bots
+  function afterStateChange(){
+    if(!state.game) return;
+    // render host's own view
+    state.view = buildView(state.game, 'host');
+    renderGame();
+    // send each remote player their view
+    Object.keys(state.conns).forEach(function(pid){
+      var seat = seatOf(state.game, pid);
+      if(seat<0) return;
+      try{ state.conns[pid].send({t:'state', view: buildView(state.game, pid)}); }catch(e){}
+    });
+    scheduleBots();
+  }
+
+  function scheduleBots(){
+    if(state.botTimer){ clearTimeout(state.botTimer); state.botTimer=null; }
+    var g=state.game; if(!g || g.winner) return;
+    var cur = g.players[g.turnSeat];
+    if(cur.isBot){
+      state.botTimer = setTimeout(function(){
+        state.botTimer=null;
+        if(!state.game || state.game.winner) return;
+        var seat = state.game.turnSeat;
+        if(!state.game.players[seat].isBot) return;
+        var act = botChooseAction(state.game, seat);
+        applyAction(state.game, seat, act);
+        afterStateChange();
+      }, 720);
+    }
+  }
+
+  // build a render view for a given player id (privacy: only their hand)
+  function buildView(g, pid){
+    var mySeat = seatOf(g, pid);
+    return {
+      roomCode: state.roomCode,
+      activeForm: g.activeForm,
+      direction: g.direction,
+      turnSeat: g.turnSeat,
+      dealerSeat: g.dealerSeat,
+      needStartDir: g.needStartDir,
+      winner: g.winner,
+      winnerName: g.winner? g.players[seatOf(g,g.winner)].name : null,
+      pendingDraw: (g.pendingDraw && g.pendingDraw.seat===mySeat)? g.pendingDraw : (g.pendingDraw?{seat:g.pendingDraw.seat}:null),
+      mySeat: mySeat,
+      myHand: mySeat>=0? g.players[mySeat].hand.slice() : [],
+      isHost: pid==='host',
+      players: g.players.map(function(p){ return {name:p.name, seat:p.seat, isBot:p.isBot, connected:p.connected, count:p.hand.length, isMe:p.id===pid, isTurn:p.seat===g.turnSeat}; }),
+      log: g.log.slice(-40)
+    };
+  }
+
+  /* ============================ CLIENT ============================ */
+  function startJoin(code){
+    state.role='client';
+    state.roomCode=code;
+    var peer = new Peer({debug:1});
+    state.peer=peer;
+    setLanding('Connecting to table '+code+'…');
+    peer.on('open', function(myid){
+      state.myId=myid;
+      var conn = peer.connect('sides'+code, {reliable:true});
+      state.hostConn=conn;
+      conn.on('open', function(){ conn.send({t:'hello', name:state.myName}); });
+      conn.on('data', function(msg){ clientHandleMsg(msg); });
+      conn.on('close', function(){ setConn('Host disconnected'); setLanding('Lost the table. The host may have closed it.'); });
+      conn.on('error', function(){ setLanding('Could not reach that table. Check the code.'); });
+    });
+    peer.on('error', function(err){
+      if(err.type==='peer-unavailable'){ setLanding('No table with code '+code+'. Double-check with the host.'); }
+      else setLanding('Connection error: '+err.type+'.');
+    });
+  }
+
+  function clientHandleMsg(msg){
+    if(msg.t==='welcome'){ state.myId=msg.youId; setConn('Joined table '+msg.roomCode); show('lobby'); }
+    else if(msg.t==='denied'){ setLanding(msg.reason||'Could not join.'); try{state.peer.destroy();}catch(e){} }
+    else if(msg.t==='lobby'){ state.lobby=msg.lobby; if($('screen-game').classList.contains('on')) {} renderLobby(); show('lobby'); }
+    else if(msg.t==='state'){ state.view=msg.view; renderGame(); }
+    else if(msg.t==='error'){ flashHint(msg.msg); }
+  }
+
+  function submitAction(action){
+    if(state.role==='host'){
+      var seat = state.game.turnSeat; // host's own seat is where host sits; but ensure it's host seat
+      var mySeat = seatOf(state.game, 'host');
+      var res = applyAction(state.game, mySeat, action);
+      if(!res.ok) flashHint(res.error);
+      afterStateChange();
+    } else if(state.hostConn){
+      state.hostConn.send({t:'action', action:action});
+    }
+  }
+
+  /* ============================ RENDER: LOBBY ============================ */
+  function renderLobby(){
+    var lob = state.lobby;
+    if(state.role==='host'){
+      // host builds lobby from seatDesc
+      lob = { roomCode:state.roomCode, players: state.seatDesc.map(function(p,i){return {id:p.id,name:p.name,isBot:p.isBot,connected:p.connected,seat:i};}) };
+      state.lobby = lob;
+    }
+    if(!lob) return;
+    $('roomCode').textContent = lob.roomCode || state.roomCode || '----';
+    var n = lob.players.length;
+    $('playerCount').textContent = '· '+n+'/6';
+    var html='';
+    lob.players.forEach(function(p){
+      var tag = p.isBot? '<span class="pill bot">bot</span>' : (p.id===state.myId? '<span class="pill you">you</span>':'');
+      if(!p.connected && !p.isBot) tag+=' <span class="pill off">off</span>';
+      html+='<li><span class="seatdot">'+(p.seat+1)+'</span><span style="flex:1;">'+esc(p.name)+'</span>'+tag+'</li>';
+    });
+    $('lobbyList').innerHTML=html;
+
+    var isHost = state.role==='host';
+    $('hostControls').style.display = isHost? 'block':'none';
+    $('guestWait').style.display = isHost? 'none':'block';
+    if(isHost){
+      var ok = n>=3 && n<=6;
+      $('startBtn').disabled = !ok;
+      $('startHint').textContent = ok? 'Ready — '+n+' at the table.' : (n<3? 'Need at least 3 (add bots to fill).' : 'Max 6 players.');
+    }
+    $('lobbyTitle').textContent = isHost? 'Your table' : 'Table '+ (lob.roomCode||'');
+  }
+
+  /* ============================ RENDER: GAME ============================ */
+  var uiSel = { cards:[], form:null };   // selected hand cards
+  var circlePick = { form:null, dir:CW };
+
+  function renderGame(){
+    var v = state.view; if(!v) return;
+    show('game');
+    // turn bar
+    var meTurn = v.mySeat>=0 && v.turnSeat===v.mySeat && !v.winner;
+    var curName = v.players[v.turnSeat] ? v.players[v.turnSeat].name : '';
+    if(v.winner){ $('turnbar').innerHTML=''; }
+    else if(v.pendingDraw && v.pendingDraw.seat!==v.mySeat){ $('turnbar').innerHTML='<span class="hl">'+esc(curName)+'</span> drew a card…'; }
+    else if(meTurn){ $('turnbar').innerHTML= v.needStartDir? 'You lead off — name the starting direction' : 'Your turn'; }
+    else { $('turnbar').innerHTML='Waiting for <span class="hl">'+esc(curName)+'</span>'; }
+
+    renderSeats(v);
+    renderHand(v);
+    renderActions(v);
+    renderLog(v);
+    renderWin(v);
+
+    // overlays
+    if(meTurn && v.needStartDir) openStartDir(); else closeOverlay('startDirOverlay');
+  }
+
+  function renderSeats(v){
+    var ring=$('seatring'); var n=v.players.length;
+    var W=ring.clientWidth||520, H=300, cx=W/2, cy=H/2, rx=W*0.42, ry=H*0.42;
+    // center active card + direction
+    var dirArrow = v.direction===CW? '↻':'↺';
+    var dirTxt = v.direction===CW? 'Clockwise':'Counter-clockwise';
+    var center='<div class="center"><div class="active-card">'+cardSVG(v.activeForm,86)+'</div>'+
+      '<div class="dirbadge"><span class="arrow">'+dirArrow+'</span>'+ (v.needStartDir?'Direction pending':dirTxt) +'</div></div>';
+    var html=center;
+    for(var i=0;i<n;i++){
+      var p=v.players[i];
+      var ang = -Math.PI/2 + i*2*Math.PI/n; // seat 0 at top
+      var x = cx + rx*Math.cos(ang), y = cy + ry*Math.sin(ang);
+      var badge='';
+      if(p.isMe) badge='<span class="badge you">you</span>';
+      else if(p.isBot) badge='<span class="badge bot">bot</span>';
+      if(!p.connected && !p.isBot) badge+=' <span class="badge off">off</span>';
+      html+='<div class="seat'+(p.isTurn?' turn':'')+'" style="left:'+x+'px; top:'+y+'px;">'+
+        '<div class="chip">'+esc(p.name)+' '+badge+'</div>'+
+        '<div class="cnt">'+p.count+' card'+(p.count===1?'':'s')+'</div></div>';
+    }
+    ring.innerHTML=html;
+  }
+
+  function renderHand(v){
+    var row=$('handrow'); row.innerHTML='';
+    if(v.mySeat<0){ row.innerHTML='<div class="muted">Spectating.</div>'; return; }
+    var meTurn = v.turnSeat===v.mySeat && !v.winner && !v.needStartDir;
+    var pend = v.pendingDraw && v.pendingDraw.seat===v.mySeat;
+    // sort hand by ladder for readability
+    var order=['line','triangle','square','pentagon','hexagon','circle'];
+    var hand = v.myHand.slice().sort(function(a,b){ return order.indexOf(a.form)-order.indexOf(b.form); });
+    hand.forEach(function(card){
+      var playable = meTurn && cardPlayable(card, v.activeForm);
+      if(pend){ playable = (card.id===v.pendingDraw.cardId); } // during pending, only the drawn card is actionable
+      var selIdx = uiSel.cards.indexOf(card.id);
+      var cls='pcard'+(playable?' play':'')+(!playable && meTurn?' dim':'')+(selIdx>=0?' sel':'');
+      var div=document.createElement('div');
+      div.className=cls; div.innerHTML=cardSVG(card.form,84);
+      div.dataset.id=card.id; div.dataset.form=card.form;
+      if(playable){ div.onclick=function(){ onCardTap(card, v); }; }
+      row.appendChild(div);
+    });
+  }
+
+  function onCardTap(card, v){
+    // circle → open chooser
+    if(card.form==='circle'){
+      if(v.pendingDraw && v.pendingDraw.seat===v.mySeat){ pendingCircle=card; }
+      openCircle(card);
+      return;
+    }
+    var r=rankOf(v.activeForm), cr=rankOf(card.form);
+    // pending drawn card: single tap plays it
+    if(v.pendingDraw && v.pendingDraw.seat===v.mySeat){
+      submitAction({type:'playDrawn', play:true});
+      uiSel={cards:[],form:null}; return;
+    }
+    if(cr===r){
+      // stack — allow multi-select of same form
+      if(uiSel.form && uiSel.form!==card.form){ uiSel={cards:[],form:null}; }
+      uiSel.form=card.form;
+      var idx=uiSel.cards.indexOf(card.id);
+      if(idx>=0) uiSel.cards.splice(idx,1); else uiSel.cards.push(card.id);
+      if(uiSel.cards.length===0) uiSel.form=null;
+      renderHand(v); renderActions(v);
+    } else {
+      // step up/down — immediate
+      uiSel={cards:[],form:null};
+      submitAction({type:'step', dir: cr===r+1?'up':'down'});
+    }
+  }
+
+  var pendingCircle=null;
+  function renderActions(v){
+    var bar=$('actionbar'); bar.innerHTML=''; $('hint').textContent='';
+    if(v.winner){ return; }
+    if(v.mySeat<0){ return; }
+    var meTurn = v.turnSeat===v.mySeat;
+    if(!meTurn){ return; }
+    if(v.needStartDir){ $('hint').textContent='Pick a direction to begin.'; return; }
+
+    // pending drawn card resolution
+    if(v.pendingDraw && v.pendingDraw.seat===v.mySeat){
+      var drew = v.myHand.filter(function(c){return c.id===v.pendingDraw.cardId;})[0];
+      $('hint').textContent='You drew a '+(drew?drew.form:'card')+' — it is playable.';
+      var playBtn=mkBtn('Play the drawn card','gold', function(){
+        if(drew && drew.form==='circle'){ pendingCircle=drew; openCircle(drew); }
+        else submitAction({type:'playDrawn', play:true});
+      });
+      var passBtn=mkBtn('Keep it & pass','ghost', function(){ submitAction({type:'playDrawn', play:false}); });
+      bar.appendChild(playBtn); bar.appendChild(passBtn);
+      return;
+    }
+
+    // stack confirm
+    if(uiSel.cards.length>0){
+      var k=uiSel.cards.length;
+      bar.appendChild(mkBtn('Stack ×'+k+' · move '+k, 'gold', function(){
+        submitAction({type:'stack', count:k}); uiSel={cards:[],form:null};
+      }));
+      bar.appendChild(mkBtn('Clear','ghost', function(){ uiSel={cards:[],form:null}; renderGame(); }));
+      $('hint').textContent='Stacking '+k+' '+uiSel.form+(k>1?'s':'')+' — direction holds, turn moves '+k+' seat'+(k>1?'s':'')+'.';
+      return;
+    }
+
+    // otherwise: show what's available / draw
+    var legal = hasAnyLegal(v.myHand, v.activeForm);
+    if(!legal){
+      bar.appendChild(mkBtn('Draw a card','gold', function(){ submitAction({type:'draw'}); }));
+      $('hint').textContent='No legal step, stack, or circle — you must draw.';
+    } else {
+      $('hint').textContent='Tap a highlighted card. Adjacent form = step · same form = stack (tap several) · circle = wild.';
+    }
+  }
+
+  function mkBtn(label, kind, fn){
+    var b=document.createElement('button'); b.className='btn '+(kind==='gold'?'gold':'ghost')+' sm'; b.textContent=label; b.onclick=fn; return b;
+  }
+  function flashHint(msg){ var h=$('hint'); if(h){ h.textContent='· '+msg; } }
+
+  /* circle chooser */
+  function openCircle(card){
+    circlePick={form:null, dir:CW};
+    var fp=$('circleForms'); fp.innerHTML='';
+    FORMS.forEach(function(f){
+      var d=document.createElement('div'); d.className='fb'; d.innerHTML=cardSVG(f,52);
+      d.onclick=function(){ circlePick.form=f; [].forEach.call(fp.children,function(c){c.classList.remove('sel');}); d.classList.add('sel'); updateCircleConfirm(); };
+      fp.appendChild(d);
+    });
+    var dp=$('circleDirs'); dp.innerHTML='';
+    [['↻ Clockwise',CW],['↺ Counter-clockwise',CCW]].forEach(function(pair){
+      var b=document.createElement('button'); b.className='btn ghost sm'; b.textContent=pair[0];
+      b.onclick=function(){ circlePick.dir=pair[1]; [].forEach.call(dp.children,function(c){c.classList.remove('gold'); c.classList.add('ghost');}); b.classList.remove('ghost'); b.classList.add('gold'); updateCircleConfirm(); };
+      dp.appendChild(b);
+    });
+    // default select CW
+    dp.children[0].click();
+    $('circleOverlay').classList.add('on');
+  }
+  function updateCircleConfirm(){ $('circleConfirm').disabled = !circlePick.form; }
+  function closeOverlay(id){ $(id).classList.remove('on'); }
+
+  /* start direction */
+  function openStartDir(){
+    var dp=$('startDirs'); dp.innerHTML='';
+    [['↻ Clockwise',CW],['↺ Counter-clockwise',CCW]].forEach(function(pair){
+      var b=document.createElement('button'); b.className='btn gold'; b.textContent=pair[0];
+      b.onclick=function(){ closeOverlay('startDirOverlay'); submitAction({type:'startDir', dir:pair[1]}); };
+      dp.appendChild(b);
+    });
+    $('startDirOverlay').classList.add('on');
+  }
+
+  function renderLog(v){
+    var box=$('logbox'); var html='';
+    v.log.forEach(function(e){
+      var who = e.name? '<b>'+esc(e.name)+'</b> ' : '';
+      var cls = (e.kind==='circle'||e.kind==='sys')?'g':'';
+      html+='<div class="le">'+who+'<span class="'+cls+'">'+esc(e.text)+'</span></div>';
+    });
+    box.innerHTML=html; box.scrollTop=box.scrollHeight;
+  }
+
+  function renderWin(v){
+    var b=$('winBanner');
+    if(!v.winner){ b.style.display='none'; return; }
+    b.style.display='flex';
+    $('winText').innerHTML='<span class="g">'+esc(v.winnerName)+'</span> emptied their hand — winner.';
+    var wc=$('winControls'); wc.innerHTML='';
+    if(state.role==='host'){
+      wc.appendChild(mkBtn('Deal a new hand','gold', function(){ hostRestart(); }));
+    } else {
+      var span=document.createElement('span'); span.className='status'; span.textContent='Waiting for host to deal again…'; wc.appendChild(span);
+    }
+  }
+
+  /* ---------- status helpers ---------- */
+  function setLanding(msg){ $('landingMsg').textContent=msg||''; }
+  function setConn(msg){ var c=$('connStatus'); if(c) c.textContent=msg; $('statusTag').textContent = msg; }
+
+  /* ============================ WIRE UP ============================ */
+  function nameOK(){
+    var v=$('nameInput').value.trim();
+    if(!v){ setLanding('Enter a name first.'); $('nameInput').focus(); return false; }
+    state.myName=v.slice(0,14); return true;
+  }
+  $('hostBtn').onclick=function(){ if(nameOK()) startHost(); };
+  $('joinBtn').onclick=function(){
+    if(!nameOK()) return;
+    var code=$('codeInput').value.trim().toUpperCase();
+    if(code.length!==4){ setLanding('Enter the 4-letter code.'); return; }
+    startJoin(code);
+  };
+  $('codeInput').addEventListener('input',function(){ this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,''); });
+
+  $('addBotBtn').onclick=hostAddBot;
+  $('removeBotBtn').onclick=hostRemoveBot;
+  $('startBtn').onclick=hostStart;
+  $('plus1Opt').onchange=function(){ /* host only, reflected on start */ };
+
+  $('copyCodeBtn').onclick=function(){ copy(state.roomCode); this.textContent='Copied!'; var b=this; setTimeout(function(){b.textContent='Copy code';},1200); };
+  $('copyLinkBtn').onclick=function(){ var url=location.origin+location.pathname+'?join='+state.roomCode; copy(url); this.textContent='Copied!'; var b=this; setTimeout(function(){b.textContent='Copy invite link';},1200); };
+  function copy(t){ try{ navigator.clipboard.writeText(t); }catch(e){ var i=document.createElement('input'); i.value=t; document.body.appendChild(i); i.select(); document.execCommand('copy'); i.remove(); } }
+
+  $('leaveLobbyBtn').onclick=leaveAll;
+  $('leaveGameBtn').onclick=leaveAll;
+  function leaveAll(){ try{ if(state.peer) state.peer.destroy(); }catch(e){} location.href=location.origin+location.pathname; }
+
+  $('circleConfirm').onclick=function(){
+    if(!circlePick.form) return;
+    closeOverlay('circleOverlay');
+    if(pendingCircle){ submitAction({type:'playDrawn', play:true, namedForm:circlePick.form, namedDir:circlePick.dir}); pendingCircle=null; }
+    else submitAction({type:'circle', namedForm:circlePick.form, namedDir:circlePick.dir});
+    uiSel={cards:[],form:null};
+  };
+  $('circleCancel').onclick=function(){ closeOverlay('circleOverlay'); pendingCircle=null; };
+
+  // prefill join code from ?join=
+  (function(){
+    renderHero();
+    var m=location.search.match(/[?&]join=([A-Za-z0-9]{4})/);
+    if(m){ $('codeInput').value=m[1].toUpperCase(); }
+    // re-render seats on resize
+    window.addEventListener('resize', function(){ if($('screen-game').classList.contains('on') && state.view) renderSeats(state.view); });
+  })();
+
+})();
+</script>
+</body>
+</html>
