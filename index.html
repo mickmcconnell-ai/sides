@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
 <meta name="robots" content="noindex,nofollow"/>
 <title>SIDES — playtest table</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5/dist/mqtt.min.js"></script>
 <style>
   :root{
     --ink:#211F1A; --paper:#E8DFCC; --card:#F4EDDD; --gold:#B58A2C;
@@ -542,9 +542,8 @@ if (typeof window !== 'undefined') (function(){
     role:null,          // 'host' | 'client'
     myName:'',
     myId:null,
-    peer:null,
-    hostConn:null,      // client -> host connection
-    conns:{},           // host: id -> DataConnection
+    mqtt:null,          // MQTT client (public-broker relay transport)
+    topics:null,        // {hub, all, cli(id)}
     roomCode:null,
     game:null,          // host: authoritative game ; client: null
     lobby:null,         // {players:[{id,name,isBot,connected,seat}], plus1, started, roomCode}
@@ -627,70 +626,83 @@ if (typeof window !== 'undefined') (function(){
     state.myId = 'host';
     // host is seat 0
     state.seatDesc = [{id:'host', name:state.myName, isBot:false, connected:true}];
-    var peer = new Peer('sides'+code, {debug:1});
-    state.peer = peer;
+    var t = topicsFor(code); state.topics = t;
+    var opened = false;
+    var cli = mqttConnect({
+      clientId: 'sides-host-'+code+'-'+rid(),
+      will: { topic: t.all, payload: JSON.stringify({t:'hostGone'}), qos:1, retain:false }
+    });
+    state.mqtt = cli;
     setLanding('Creating your table…');
-    peer.on('open', function(){
-      show('lobby'); renderLobby();
-      setConn('Hosting · you are the table');
+    cli.on('connect', function(){
+      if(opened) return; opened = true;
+      cli.subscribe(t.hub, {qos:1}, function(err){
+        if(err){ setLanding('Broker error — try again in a moment.'); return; }
+        show('lobby'); renderLobby(); setConn('Hosting · table '+code);
+      });
     });
-    peer.on('connection', function(conn){ hostOnConnection(conn); });
-    peer.on('error', function(err){
-      if(err.type==='unavailable-id'){ // code collision, retry
-        try{peer.destroy();}catch(e){}
-        state.myName=state.myName; startHost(); return;
-      }
-      setLanding('Connection error: '+err.type+'. Try again.');
+    cli.on('message', function(topic, payload){
+      if(topic!==t.hub) return;
+      var msg; try{ msg = JSON.parse(payload.toString()); }catch(e){ return; }
+      hostHandleMsg(msg);
     });
+    cli.on('error', function(e){ setLanding('Connection error: '+((e&&e.message)||e)+'. Try again.'); });
   }
 
-  function hostOnConnection(conn){
-    conn.on('open', function(){
-      state.conns[conn.peer]=conn;
+  /* ---- transport: MQTT-over-WebSocket relay (every device dials OUT to a public
+     broker, so there is no P2P/NAT hole-punching — works across any networks) ---- */
+  var BROKER = 'wss://broker.emqx.io:8084/mqtt';
+  function rid(){ return 'x'+Math.random().toString(36).slice(2,10); }
+  function topicsFor(code){ return {
+    hub: 'sides/'+code+'/h',              // clients -> host
+    all: 'sides/'+code+'/all',            // host -> everyone (lobby, host-gone)
+    cli: function(id){ return 'sides/'+code+'/c/'+id; }  // host -> one client (welcome, private state)
+  };}
+  function mqttConnect(opts){
+    opts = opts||{};
+    return mqtt.connect(BROKER, {
+      clientId: opts.clientId || ('sides-'+rid()),
+      clean:true, keepalive:30, connectTimeout:9000, reconnectPeriod:3000,
+      will: opts.will
     });
-    conn.on('data', function(msg){ hostHandleMsg(conn, msg); });
-    conn.on('close', function(){ hostOnDisconnect(conn.peer); });
-    conn.on('error', function(){});
   }
+  function hostSendTo(clientId, obj){ if(state.mqtt){ try{ state.mqtt.publish(state.topics.cli(clientId), JSON.stringify(obj), {qos:1}); }catch(e){} } }
+  function hostBroadcastAll(obj){ if(state.mqtt){ try{ state.mqtt.publish(state.topics.all, JSON.stringify(obj), {qos:1}); }catch(e){} } }
 
-  function hostHandleMsg(conn, msg){
+  function hostHandleMsg(msg){
+    if(!msg || !msg.from) return;
     if(msg.t==='hello'){
-      // join attempt
-      if(state.game){ conn.send({t:'denied', reason:'Game already in progress.'}); return; }
-      if(state.seatDesc.filter(function(p){return !p.isBot;}).length + state.seatDesc.filter(function(p){return p.isBot;}).length >= MAX_PLAYERS){
-        conn.send({t:'denied', reason:'Table is full.'}); return;
+      if(state.game){ hostSendTo(msg.from,{t:'denied', reason:'Game already in progress.'}); return; }
+      if(state.seatDesc.length >= MAX_PLAYERS){ hostSendTo(msg.from,{t:'denied', reason:'Table is full.'}); return; }
+      if(!state.seatDesc.some(function(p){return p.id===msg.from;})){
+        state.seatDesc.push({id:msg.from, name:(msg.name||'Player').slice(0,14), isBot:false, connected:true});
       }
-      // reuse the connection peer id as player id
-      var exists = state.seatDesc.some(function(p){return p.id===conn.peer;});
-      if(!exists){
-        state.seatDesc.push({id:conn.peer, name:(msg.name||'Player').slice(0,14), isBot:false, connected:true});
-      }
-      conn.send({t:'welcome', youId:conn.peer, roomCode:state.roomCode});
+      hostSendTo(msg.from,{t:'welcome', youId:msg.from, roomCode:state.roomCode});
       broadcastLobby();
       return;
     }
+    if(msg.t==='bye'){ hostOnDisconnect(msg.from); return; }
     if(msg.t==='action' && state.game){
-      var seat = seatOf(state.game, conn.peer);
+      var seat = seatOf(state.game, msg.from);
       if(seat<0) return;
       var res = applyAction(state.game, seat, msg.action);
-      if(!res.ok){ conn.send({t:'error', msg:res.error}); }
+      if(!res.ok){ hostSendTo(msg.from,{t:'error', msg:res.error}); }
       afterStateChange();
     }
   }
 
-  function hostOnDisconnect(peerId){
-    delete state.conns[peerId];
+  function hostOnDisconnect(clientId){
     if(state.game){
       // convert to bot so the game keeps flowing
-      var seat = seatOf(state.game, peerId);
-      if(seat>=0){
+      var seat = seatOf(state.game, clientId);
+      if(seat>=0 && !state.game.players[seat].isBot){
         state.game.players[seat].isBot = true;
         state.game.players[seat].connected = false;
         pushLog(state.game,{seat:seat,name:state.game.players[seat].name,kind:'sys',text:'disconnected — a bot took the seat'});
         afterStateChange();
       }
     } else {
-      state.seatDesc = state.seatDesc.filter(function(p){return p.id!==peerId;});
+      state.seatDesc = state.seatDesc.filter(function(p){return p.id!==clientId;});
       broadcastLobby();
     }
   }
@@ -701,7 +713,7 @@ if (typeof window !== 'undefined') (function(){
       plus1: $('plus1Opt') ? $('plus1Opt').checked : false };
     state.lobby = lob;
     renderLobby();
-    Object.keys(state.conns).forEach(function(k){ try{ state.conns[k].send({t:'lobby', lobby:lob}); }catch(e){} });
+    hostBroadcastAll({t:'lobby', lobby:lob});
   }
 
   function hostAddBot(){
@@ -740,11 +752,10 @@ if (typeof window !== 'undefined') (function(){
     // render host's own view
     state.view = buildView(state.game, 'host');
     renderGame();
-    // send each remote player their view
-    Object.keys(state.conns).forEach(function(pid){
-      var seat = seatOf(state.game, pid);
-      if(seat<0) return;
-      try{ state.conns[pid].send({t:'state', view: buildView(state.game, pid)}); }catch(e){}
+    // send each connected human player their private view
+    state.game.players.forEach(function(p){
+      if(p.id==='host' || p.isBot) return;
+      hostSendTo(p.id, {t:'state', view: buildView(state.game, p.id)});
     });
     scheduleBots();
   }
@@ -791,41 +802,49 @@ if (typeof window !== 'undefined') (function(){
   function startJoin(code){
     state.role='client';
     state.roomCode=code;
-    var peer = new Peer({debug:1});
-    state.peer=peer;
+    var myId = rid(); state.myId = myId;
+    var t = topicsFor(code); state.topics = t;
+    var cli = mqttConnect({
+      clientId: 'sides-'+code+'-'+myId,
+      will: { topic: t.hub, payload: JSON.stringify({from:myId, t:'bye'}), qos:1, retain:false }
+    });
+    state.mqtt = cli;
     setLanding('Connecting to table '+code+'…');
-    peer.on('open', function(myid){
-      state.myId=myid;
-      var conn = peer.connect('sides'+code, {reliable:true});
-      state.hostConn=conn;
-      conn.on('open', function(){ conn.send({t:'hello', name:state.myName}); });
-      conn.on('data', function(msg){ clientHandleMsg(msg); });
-      conn.on('close', function(){ setConn('Host disconnected'); setLanding('Lost the table. The host may have closed it.'); });
-      conn.on('error', function(){ setLanding('Could not reach that table. Check the code.'); });
+    var joined=false;
+    var giveUp = setTimeout(function(){
+      if(!joined){ setLanding('Couldn’t reach table '+code+'. Make sure the host still has their tab open and the code is right, then tap Join again.'); }
+    }, 15000);
+    cli.on('connect', function(){
+      cli.subscribe([t.cli(myId), t.all], {qos:1}, function(err){
+        if(err){ setLanding('Broker error — try again in a moment.'); return; }
+        cli.publish(t.hub, JSON.stringify({from:myId, t:'hello', name:state.myName}), {qos:1});
+      });
     });
-    peer.on('error', function(err){
-      if(err.type==='peer-unavailable'){ setLanding('No table with code '+code+'. Double-check with the host.'); }
-      else setLanding('Connection error: '+err.type+'.');
+    cli.on('message', function(topic, payload){
+      var msg; try{ msg = JSON.parse(payload.toString()); }catch(e){ return; }
+      if(msg.t==='welcome'){ joined=true; clearTimeout(giveUp); }
+      clientHandleMsg(msg);
     });
+    cli.on('error', function(e){ setLanding('Connection error: '+((e&&e.message)||e)+'.'); });
   }
 
   function clientHandleMsg(msg){
     if(msg.t==='welcome'){ state.myId=msg.youId; setConn('Joined table '+msg.roomCode); show('lobby'); }
-    else if(msg.t==='denied'){ setLanding(msg.reason||'Could not join.'); try{state.peer.destroy();}catch(e){} }
-    else if(msg.t==='lobby'){ state.lobby=msg.lobby; if($('screen-game').classList.contains('on')) {} renderLobby(); show('lobby'); }
+    else if(msg.t==='denied'){ setLanding(msg.reason||'Could not join.'); try{state.mqtt.end(true);}catch(e){} }
+    else if(msg.t==='lobby'){ state.lobby=msg.lobby; renderLobby(); show('lobby'); }
     else if(msg.t==='state'){ state.view=msg.view; renderGame(); }
     else if(msg.t==='error'){ flashHint(msg.msg); }
+    else if(msg.t==='hostGone'){ setConn('Host disconnected'); flashHint('The host closed the table.'); if(!$('screen-game').classList.contains('on')) setLanding('The host closed the table.'); }
   }
 
   function submitAction(action){
     if(state.role==='host'){
-      var seat = state.game.turnSeat; // host's own seat is where host sits; but ensure it's host seat
       var mySeat = seatOf(state.game, 'host');
       var res = applyAction(state.game, mySeat, action);
       if(!res.ok) flashHint(res.error);
       afterStateChange();
-    } else if(state.hostConn){
-      state.hostConn.send({t:'action', action:action});
+    } else if(state.mqtt){
+      state.mqtt.publish(state.topics.hub, JSON.stringify({from:state.myId, t:'action', action:action}), {qos:1});
     }
   }
 
@@ -1083,7 +1102,7 @@ if (typeof window !== 'undefined') (function(){
 
   $('leaveLobbyBtn').onclick=leaveAll;
   $('leaveGameBtn').onclick=leaveAll;
-  function leaveAll(){ try{ if(state.peer) state.peer.destroy(); }catch(e){} location.href=location.origin+location.pathname; }
+  function leaveAll(){ try{ if(state.mqtt) state.mqtt.end(true); }catch(e){} location.href=location.origin+location.pathname; }
 
   $('circleConfirm').onclick=function(){
     if(!circlePick.form) return;
