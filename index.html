@@ -49,7 +49,7 @@
 
   /* ---------- landing ---------- */
   .hero{display:grid; grid-template-columns:1.1fr .9fr; gap:30px; align-items:center; margin-top:26px;}
-  .ladder{display:flex; align-items:center; gap:6px; justify-content:flex-end;}
+  .ladder{display:flex; align-items:center; gap:6px; justify-content:flex-end; flex-wrap:wrap;}
   .ladder .dash{width:14px; height:1px; background:var(--ink);}
   .card-cta{background:var(--ink); color:var(--paper); border-radius:3px; padding:20px 22px; margin-top:26px;}
   .card-cta .row{display:flex; gap:26px; flex-wrap:wrap;}
@@ -220,7 +220,7 @@
           <div id="benchmarkRow" class="field" style="margin:6px 0 10px;">
             <label>Benchmark (points to win the match)</label>
             <input type="text" id="benchmarkInput" style="max-width:140px;" inputmode="numeric"/>
-            <span class="note" style="display:block; margin-top:4px;">Auto-set to ~5 rounds (30 × players). Raise for a longer match.</span>
+            <span class="note" style="display:block; margin-top:4px;">Auto-set to ~5 rounds (25 × players). Raise for a longer match.</span>
           </div>
           <label class="opt" style="margin-top:6px;">
             <input type="checkbox" id="plus1Opt"/>
@@ -258,11 +258,11 @@
         <details class="ref">
           <summary>Rules reference ▾</summary>
           <div class="rbody">
-            <p><b>Ladder:</b> Line ▸ Triangle ▸ Square ▸ Pentagon ▸ Hexagon. More sides sit higher.</p>
+            <p><b>Ladder (by points):</b> Line 2 ▸ Triangle 3 ▸ Square 4 ▸ Pentagon 5 ▸ Hexagon 6. A card is worth its points (corners); the circle is 0.</p>
             <p><b>Play up or down.</b> Each turn, play the rung one form <i>above</i> the centre (up the ladder · clockwise) or one form <i>below</i> (down · counter-clockwise). You never play the centre form itself.</p>
             <p><b>Stack for distance.</b> Play several copies of that same up/down shape to move that many seats — two squares = two seats, three = three. No limit. Which way you go sets the direction.</p>
             <p><b>Circle</b> — the only wild, legal on any form. Name the next form and choose a direction. Moves one seat. Never stacks.</p>
-            <p><b>Walls</b> — no wrap. At a Line you can only step up; at a Hexagon only down.</p>
+            <p><b>Walls</b> — no wrap. At a Line (bottom) you can only go up; at a Hexagon (top) only down.</p>
             <p><b>Blocked</b> — if you can't step, stack, or circle, draw one. Play it if it's legal, otherwise pass.</p>
             <p><b>Win</b> — first to empty their hand, even on a stack or circle.</p>
           </div>
@@ -312,8 +312,8 @@ var FORMS = ['line','triangle','square','pentagon','hexagon'];
 var CW = 1, CCW = -1;
 function rankOf(f){ return FORMS.indexOf(f); }
 function mod(a,n){ return ((a % n) + n) % n; }
-// Datum scoring: a card is worth its number of points (corners); the circle (the null) is the heaviest.
-var POINTS = {line:2, triangle:3, square:4, pentagon:5, hexagon:6, heptagon:7, octagon:8, circle:15};
+// Datum scoring: a card is worth its number of points (corners). The point is 1, up to the nonagon at 9. The circle (the null) has no corners = 0.
+var POINTS = {point:1, line:2, triangle:3, square:4, pentagon:5, hexagon:6, heptagon:7, octagon:8, nonagon:9, circle:0};
 function pointsOf(form){ return POINTS[form]||0; }
 function handPoints(hand){ var s=0; for(var i=0;i<hand.length;i++) s+=pointsOf(hand[i].form); return s; }
 
@@ -321,7 +321,7 @@ function buildDeck(){
   var deck = [], id = 0, i, f, k;
   for(i=0;i<FORMS.length;i++){ f=FORMS[i]; for(k=0;k<16;k++) deck.push({id:'c'+(id++), form:f}); }
   for(k=0;k<6;k++) deck.push({id:'c'+(id++), form:'circle'});
-  return deck; // 86
+  return deck; // 5 forms × 16 + 6 circle = 86
 }
 function shuffle(arr, rnd){
   rnd = rnd || Math.random;
@@ -589,17 +589,15 @@ if (typeof window !== 'undefined') (function(){
     return pts.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ');
   }
   // returns svg string for a form glyph centered in a viewBox 0..size
+  var POLY = { triangle:[3,90], square:[4,45], pentagon:[5,-90], hexagon:[6,0], heptagon:[7,-90], octagon:[8,22.5], nonagon:[9,-90] };
   function glyph(form, size, stroke, sw){
     var c=size/2, r=size*0.30;
     stroke = stroke||'#211F1A'; sw = sw||2;
-    var s='';
-    if(form==='line'){ s='<line x1="'+(c-r)+'" y1="'+c+'" x2="'+(c+r)+'" y2="'+c+'" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linecap="round"/>'; }
-    else if(form==='triangle'){ s='<polygon points="'+polyPoints(c,c,r,3,90)+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linejoin="round"/>'; }
-    else if(form==='square'){ s='<polygon points="'+polyPoints(c,c,r,4,45)+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linejoin="round"/>'; }
-    else if(form==='pentagon'){ s='<polygon points="'+polyPoints(c,c,r,5,-90)+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linejoin="round"/>'; }
-    else if(form==='hexagon'){ s='<polygon points="'+polyPoints(c,c,r,6,0)+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linejoin="round"/>'; }
-    else if(form==='circle'){ s='<circle cx="'+c+'" cy="'+c+'" r="'+(r*1.02)+'" fill="#B58A2C" stroke="#8f6d1f" stroke-width="1"/>'; }
-    return s;
+    if(form==='point'){ return '<circle cx="'+c+'" cy="'+c+'" r="'+(size*0.085).toFixed(1)+'" fill="'+stroke+'"/>'; }
+    if(form==='line'){ return '<line x1="'+(c-r)+'" y1="'+c+'" x2="'+(c+r)+'" y2="'+c+'" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linecap="round"/>'; }
+    if(form==='circle'){ return '<circle cx="'+c+'" cy="'+c+'" r="'+(r*1.02)+'" fill="#B58A2C" stroke="#8f6d1f" stroke-width="1"/>'; }
+    var p=POLY[form]; if(!p) return '';
+    return '<polygon points="'+polyPoints(c,c,r,p[0],p[1])+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linejoin="round"/>';
   }
   // full card svg; w in px
   function cardSVG(form, w){
@@ -633,10 +631,7 @@ if (typeof window !== 'undefined') (function(){
   function renderHero(){
     var el=$('heroLadder'); var forms=['line','triangle','square','pentagon','hexagon','circle'];
     var html='';
-    forms.forEach(function(f,i){
-      html+='<div style="width:60px; height:84px;">'+cardSVG(f,60)+'</div>';
-      if(i<forms.length-1) html+='<div class="dash"></div>';
-    });
+    forms.forEach(function(f){ html+='<div style="width:56px; height:78px;">'+cardSVG(f,56)+'</div>'; });
     el.innerHTML=html;
   }
 
@@ -760,7 +755,7 @@ if (typeof window !== 'undefined') (function(){
     var descs = state.seatDesc.map(function(p){return {id:p.id,name:p.name,isBot:p.isBot,connected:p.connected};});
     if(scored){
       var bm = parseInt(($('benchmarkInput').value||'').replace(/[^0-9]/g,''),10);
-      if(!bm || bm<10) bm = 30*n;
+      if(!bm || bm<10) bm = 25*n;
       var sc = {}; descs.forEach(function(d){ sc[d.id]=0; });
       state.match = { scored:true, benchmark:bm, scores:sc, roundNo:1, lastResult:null, matchWinner:null };
     } else {
@@ -957,7 +952,7 @@ if (typeof window !== 'undefined') (function(){
       $('startBtn').disabled = !ok;
       $('startHint').textContent = ok? 'Ready — '+n+' at the table.' : (n<3? 'Need at least 3 (add bots to fill).' : 'Max 6 players.');
       // auto-scale the benchmark default (~5 rounds) until the host edits it
-      if($('benchmarkInput') && !(window.__benchTouched && window.__benchTouched())){ $('benchmarkInput').value = 30*n; }
+      if($('benchmarkInput') && !(window.__benchTouched && window.__benchTouched())){ $('benchmarkInput').value = 25*n; }
       if($('benchmarkRow')) $('benchmarkRow').style.display = $('scoredOpt').checked?'block':'none';
     }
     $('lobbyTitle').textContent = isHost? 'Your table' : 'Table '+ (lob.roomCode||'');
