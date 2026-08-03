@@ -4,7 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
 <meta name="robots" content="noindex,nofollow"/>
-<title>SIDES — playtest table</title>
+<title>DATUM — playtest table</title>
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5/dist/mqtt.min.js"></script>
 <style>
   :root{
@@ -106,6 +106,16 @@
 
   .side{display:flex; flex-direction:column; gap:14px;}
   .logbox{border:1px solid var(--ink); border-radius:3px; padding:12px 14px; height:300px; overflow-y:auto; background:var(--card); font-size:12.5px; line-height:1.55; font-weight:500;}
+  .scorebox{border:1px solid var(--ink); border-radius:3px; padding:12px 14px; background:var(--ink); color:var(--paper);}
+  .sb-head{font-size:11px; letter-spacing:.18em; text-transform:uppercase; font-weight:800; color:var(--gold-soft); margin-bottom:10px; display:flex; justify-content:space-between; align-items:baseline;}
+  .sb-rd{font-size:9px; letter-spacing:.1em; color:#cfc6b0; font-weight:600;}
+  .sb-row{display:flex; align-items:center; gap:8px; margin:6px 0; font-size:12.5px; font-weight:700;}
+  .sb-name{width:74px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .sb-bar{flex:1; height:8px; background:#3a362e; border-radius:4px; overflow:hidden;}
+  .sb-fill{display:block; height:100%; background:var(--gold); border-radius:4px; transition:width .4s;}
+  .sb-fill.win{background:var(--gold-soft);}
+  .sb-val{width:34px; text-align:right; font-variant-numeric:tabular-nums;}
+  .wtally{color:var(--paper); font-weight:500; font-size:12px; opacity:.75; margin-left:6px;}
   .logbox .le{padding:3px 0; border-bottom:1px dotted var(--line);}
   .logbox .le b{font-weight:800;}
   .logbox .le .g{color:var(--gold); font-weight:800;}
@@ -142,8 +152,8 @@
 <body>
 <div class="wrap">
   <div class="topbar">
-    <div class="brand">SIDES</div>
-    <div class="tag" id="statusTag">playtest table · core test 03</div>
+    <div class="brand">DATUM</div>
+    <div class="tag" id="statusTag">working name · playtest table</div>
   </div>
 
   <!-- ===================== LANDING ===================== -->
@@ -151,8 +161,8 @@
     <div class="hero">
       <div>
         <div class="kicker">Playtest build</div>
-        <h1>SIDES</h1>
-        <div style="font-size:20px; letter-spacing:.02em; margin:6px 0 2px; font-weight:800;">Play follows form.</div>
+        <h1>DATUM</h1>
+        <div style="font-size:20px; letter-spacing:.02em; margin:6px 0 2px; font-weight:800;">The game of points. A line is two.</div>
         <p class="note" style="max-width:420px; margin-top:10px;">A remote table for the founders. One person hosts, everyone else joins with a four-letter code. No sign-in, no install — it runs peer-to-peer straight in the browser. Empty seats can be filled with bots so two people can still test a real 3–6 handed game.</p>
       </div>
       <div class="ladder" id="heroLadder"></div>
@@ -204,8 +214,17 @@
             <button class="btn ghost sm" id="removeBotBtn">− Remove bot</button>
           </div>
           <label class="opt" style="margin-top:16px;">
+            <input type="checkbox" id="scoredOpt" checked/>
+            <span class="note"><b>Scored match</b> (Datum mode). Each round, the winner banks the points still in everyone else's hand (a card is worth its number of corners; the circle is worth 15). First to the <b>benchmark</b> wins the match. Off = single hand, first to empty wins.</span>
+          </label>
+          <div id="benchmarkRow" class="field" style="margin:6px 0 10px;">
+            <label>Benchmark (points to win the match)</label>
+            <input type="text" id="benchmarkInput" style="max-width:140px;" inputmode="numeric"/>
+            <span class="note" style="display:block; margin-top:4px;">Auto-set to ~5 rounds (30 × players). Raise for a longer match.</span>
+          </div>
+          <label class="opt" style="margin-top:6px;">
             <input type="checkbox" id="plus1Opt"/>
-            <span class="note"><b>+1 starter card</b> (fairness variant). Deals the first player 10 cards instead of 9 to offset the first-move edge the sim found. Off = base game.</span>
+            <span class="note"><b>+1 starter card</b> (fairness variant). Deals the first player 10 cards instead of 9 to offset the first-move edge. Off = base game.</span>
           </label>
           <button class="btn gold" id="startBtn" style="margin-top:8px; width:100%;">Deal & start</button>
           <div class="hint" id="startHint" style="text-align:left;"></div>
@@ -234,6 +253,7 @@
       </div>
       <div class="side">
         <div class="status"><span class="dot"></span><span id="connStatus">Connected</span></div>
+        <div id="scoreboard" class="scorebox" style="display:none;"></div>
         <div class="logbox" id="logbox"></div>
         <details class="ref">
           <summary>Rules reference ▾</summary>
@@ -253,7 +273,7 @@
   </section>
 
   <div class="footer">
-    <div>Play follows form</div>
+    <div>Every card, a datum</div>
     <div>Confidential working prototype · July 2026</div>
   </div>
 </div>
@@ -292,6 +312,10 @@ var FORMS = ['line','triangle','square','pentagon','hexagon'];
 var CW = 1, CCW = -1;
 function rankOf(f){ return FORMS.indexOf(f); }
 function mod(a,n){ return ((a % n) + n) % n; }
+// Datum scoring: a card is worth its number of points (corners); the circle (the null) is the heaviest.
+var POINTS = {line:2, triangle:3, square:4, pentagon:5, hexagon:6, heptagon:7, octagon:8, circle:15};
+function pointsOf(form){ return POINTS[form]||0; }
+function handPoints(hand){ var s=0; for(var i=0;i<hand.length;i++) s+=pointsOf(hand[i].form); return s; }
 
 function buildDeck(){
   var deck = [], id = 0, i, f, k;
@@ -549,7 +573,8 @@ if (typeof window !== 'undefined') (function(){
     lobby:null,         // {players:[{id,name,isBot,connected,seat}], plus1, started, roomCode}
     view:null,          // client-side render view
     botTimer:null,
-    seatDesc:[]         // host lobby players (pre-game)
+    seatDesc:[],        // host lobby players (pre-game)
+    match:null          // host: {scored, benchmark, scores:{id:total}, roundNo, lastResult, matchWinner}
   };
 
   /* ---------- tiny DOM helpers ---------- */
@@ -590,17 +615,16 @@ if (typeof window !== 'undefined') (function(){
     if(isCircle){ main = '<circle cx="'+cx+'" cy="'+cy+'" r="'+R*1.18+'" fill="#B58A2C" stroke="#8f6d1f" stroke-width="1.5"/>'; }
     // center the glyph on the construction circle (cx,cy); glyph() centers within its own wxw box
     else { main = '<g transform="translate(0,'+(cy - w/2).toFixed(2)+')">'+ glyph(form, w, '#211F1A', Math.max(2, w*0.028)) +'</g>'; }
-    // corner glyphs
-    var cg = w*0.20;
-    var corner = function(x,y){
-      return '<g transform="translate('+x+','+y+')">'+ glyph(form, cg, isCircle?'#B58A2C':'#211F1A', 1.3) +'</g>';
+    // corner point-value (the datum): a card's number of corners; the circle (the null) is 15
+    var pv = pointsOf(form), pvColor = isCircle?'#B58A2C':'#211F1A', fs = w*0.155;
+    var cornerNum = function(x,y,rot){
+      return '<text x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" font-size="'+fs.toFixed(1)+'" fill="'+pvColor+'" font-family="Helvetica Neue,Arial,sans-serif" font-weight="800" text-anchor="middle"'+(rot?' transform="rotate(180 '+x.toFixed(1)+' '+y.toFixed(1)+')"':'')+'>'+pv+'</text>';
     };
+    var corners = (w>=46) ? cornerNum(w*0.16, h*0.135) + cornerNum(w*0.84, h*0.895, true) : '';
     var svg = '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" xmlns="http://www.w3.org/2000/svg">'+
       '<rect x="1.5" y="1.5" width="'+(w-3)+'" height="'+(h-3)+'" rx="7" fill="'+cardFill+'" stroke="'+border+'" stroke-width="1.5"/>'+
       '<rect x="5" y="5" width="'+(w-10)+'" height="'+(h-10)+'" rx="5" fill="none" stroke="#d8cfb8" stroke-width="1"/>'+
-      construction + main +
-      corner(w*0.04, h*0.03) +
-      '<g transform="translate('+(w*0.96)+','+(h*0.97)+') rotate(180)">'+ glyph(form, cg, isCircle?'#B58A2C':'#211F1A',1.3) +'</g>'+
+      construction + main + corners +
       '</svg>';
     return svg;
   }
@@ -732,8 +756,18 @@ if (typeof window !== 'undefined') (function(){
     var n=state.seatDesc.length;
     if(n<3 || n>6) return;
     var plus1 = $('plus1Opt').checked;
-    state.game = newGame(state.seatDesc.map(function(p){return {id:p.id,name:p.name,isBot:p.isBot,connected:p.connected};}), {plus1:plus1, dealerSeat:0});
-    pushLog(state.game,{kind:'sys',text:'Dealt '+(plus1?'9 (+1 to starter)':'9')+' each · '+state.game.activeForm+' revealed'});
+    var scored = $('scoredOpt').checked;
+    var descs = state.seatDesc.map(function(p){return {id:p.id,name:p.name,isBot:p.isBot,connected:p.connected};});
+    if(scored){
+      var bm = parseInt(($('benchmarkInput').value||'').replace(/[^0-9]/g,''),10);
+      if(!bm || bm<10) bm = 30*n;
+      var sc = {}; descs.forEach(function(d){ sc[d.id]=0; });
+      state.match = { scored:true, benchmark:bm, scores:sc, roundNo:1, lastResult:null, matchWinner:null };
+    } else {
+      state.match = { scored:false };
+    }
+    state.game = newGame(descs, {plus1:plus1, dealerSeat:0});
+    pushLog(state.game,{kind:'sys',text:(scored?'Match to '+state.match.benchmark+' · Round 1 · ':'')+'Dealt '+(plus1?'9 (+1 to starter)':'9')+' each · '+state.game.activeForm+' revealed'});
     afterStateChange();
   }
 
@@ -741,14 +775,48 @@ if (typeof window !== 'undefined') (function(){
     if(!state.game) return;
     var prevDealer = state.game.dealerSeat;
     var descs = state.game.players.map(function(p){return {id:p.id,name:p.name,isBot:p.isBot,connected:p.connected};});
-    state.game = newGame(descs, {plus1:state.game.plus1, dealerSeat:mod(prevDealer+1, descs.length)});
-    pushLog(state.game,{kind:'sys',text:'New hand · deal passes left · '+state.game.activeForm+' revealed'});
+    var m = state.match, nd = mod(prevDealer+1, descs.length), msg;
+    if(m && m.scored && !m.matchWinner){
+      m.roundNo++;
+      msg = 'Round '+m.roundNo+' · deal passes left · '+'';
+    } else if(m && m.scored && m.matchWinner){
+      // new match: reset scores
+      m.scores = {}; descs.forEach(function(d){ m.scores[d.id]=0; });
+      m.roundNo = 1; m.matchWinner = null; m.lastResult = null;
+      msg = 'New match to '+m.benchmark+' · Round 1 · ';
+    } else {
+      msg = 'New hand · deal passes left · ';
+    }
+    state.game = newGame(descs, {plus1:state.game.plus1, dealerSeat:nd});
+    pushLog(state.game,{kind:'sys',text:msg+state.game.activeForm+' revealed'});
     afterStateChange();
   }
 
   // after any host-side game mutation: broadcast personalized views, render, schedule bots
+  // when a round ends in scored mode, bank the winner's data exactly once
+  function scoreRoundIfEnded(){
+    var g=state.game, m=state.match;
+    if(!g || !g.winner || !m || !m.scored || g.scoredDone) return;
+    g.scoredDone = true;
+    var winId = g.winner, winName='';
+    var res = { winnerId:winId, roundNo:m.roundNo, rows:[], gain:0 };
+    g.players.forEach(function(p){
+      if(p.id===winId){ winName=p.name; return; }
+      var hp = handPoints(p.hand);
+      res.rows.push({ name:p.name, handPoints:hp, count:p.hand.length });
+      res.gain += hp;
+    });
+    res.winnerName = winName;
+    m.scores[winId] = (m.scores[winId]||0) + res.gain;
+    res.winnerTotal = m.scores[winId];
+    m.lastResult = res;
+    if(m.scores[winId] >= m.benchmark){ m.matchWinner = winId; }
+    pushLog(g,{kind:'sys',text:winName+' clears their data — banks '+res.gain+' pts (total '+res.winnerTotal+'/'+m.benchmark+')'+(m.matchWinner?' — MATCH!':'')});
+  }
+
   function afterStateChange(){
     if(!state.game) return;
+    scoreRoundIfEnded();
     // render host's own view
     state.view = buildView(state.game, 'host');
     renderGame();
@@ -777,6 +845,18 @@ if (typeof window !== 'undefined') (function(){
     }
   }
 
+  function buildMatchView(g){
+    var m=state.match;
+    if(!m || !m.scored) return null;
+    return {
+      scored:true, benchmark:m.benchmark, roundNo:m.roundNo,
+      matchWinner:m.matchWinner,
+      matchWinnerName: m.matchWinner ? ((g.players.filter(function(p){return p.id===m.matchWinner;})[0]||{}).name||'') : null,
+      scoreboard: g.players.map(function(p){ return {name:p.name, total:(m.scores[p.id]||0)}; }),
+      lastResult: m.lastResult || null
+    };
+  }
+
   // build a render view for a given player id (privacy: only their hand)
   function buildView(g, pid){
     var mySeat = seatOf(g, pid);
@@ -794,6 +874,7 @@ if (typeof window !== 'undefined') (function(){
       myHand: mySeat>=0? g.players[mySeat].hand.slice() : [],
       isHost: pid==='host',
       players: g.players.map(function(p){ return {name:p.name, seat:p.seat, isBot:p.isBot, connected:p.connected, count:p.hand.length, isMe:p.id===pid, isTurn:p.seat===g.turnSeat}; }),
+      match: buildMatchView(g),
       log: g.log.slice(-40)
     };
   }
@@ -875,6 +956,9 @@ if (typeof window !== 'undefined') (function(){
       var ok = n>=3 && n<=6;
       $('startBtn').disabled = !ok;
       $('startHint').textContent = ok? 'Ready — '+n+' at the table.' : (n<3? 'Need at least 3 (add bots to fill).' : 'Max 6 players.');
+      // auto-scale the benchmark default (~5 rounds) until the host edits it
+      if($('benchmarkInput') && !(window.__benchTouched && window.__benchTouched())){ $('benchmarkInput').value = 30*n; }
+      if($('benchmarkRow')) $('benchmarkRow').style.display = $('scoredOpt').checked?'block':'none';
     }
     $('lobbyTitle').textContent = isHost? 'Your table' : 'Table '+ (lob.roomCode||'');
   }
@@ -897,6 +981,7 @@ if (typeof window !== 'undefined') (function(){
     renderSeats(v);
     renderHand(v);
     renderActions(v);
+    renderScoreboard(v);
     renderLog(v);
     renderWin(v);
   }
@@ -1063,13 +1148,38 @@ if (typeof window !== 'undefined') (function(){
     var b=$('winBanner');
     if(!v.winner){ b.style.display='none'; return; }
     b.style.display='flex';
-    $('winText').innerHTML='<span class="g">'+esc(v.winnerName)+'</span> emptied their hand — winner.';
-    var wc=$('winControls'); wc.innerHTML='';
-    if(state.role==='host'){
-      wc.appendChild(mkBtn('Deal a new hand','gold', function(){ hostRestart(); }));
+    var m=v.match, wc=$('winControls'); wc.innerHTML='';
+    function hostBtn(label){ if(state.role==='host'){ wc.appendChild(mkBtn(label,'gold',function(){ hostRestart(); })); } else { var s=document.createElement('span'); s.className='status'; s.textContent='Waiting for the host…'; wc.appendChild(s); } }
+    if(m && m.scored){
+      if(m.matchWinner){
+        $('winText').innerHTML='<span class="g">'+esc(m.matchWinnerName)+'</span> reaches '+m.benchmark+' — wins the match!';
+        hostBtn('New match');
+      } else {
+        var lr=m.lastResult, gain=lr?lr.gain:0, rd=lr?lr.roundNo:'';
+        var tally = (lr && lr.rows.length)? ' · '+lr.rows.map(function(r){return esc(r.name)+' '+r.handPoints;}).join(' · ') : '';
+        $('winText').innerHTML='<span class="g">'+esc(v.winnerName)+'</span> clears their data — banks <span class="g">+'+gain+'</span> (round '+rd+')<span class="wtally">'+tally+'</span>';
+        hostBtn('Next round');
+      }
     } else {
-      var span=document.createElement('span'); span.className='status'; span.textContent='Waiting for host to deal again…'; wc.appendChild(span);
+      $('winText').innerHTML='<span class="g">'+esc(v.winnerName)+'</span> emptied their hand — winner.';
+      hostBtn('Deal a new hand');
     }
+  }
+
+  function renderScoreboard(v){
+    var el=$('scoreboard'); if(!el) return;
+    var m=v.match;
+    if(!m || !m.scored){ el.style.display='none'; return; }
+    el.style.display='block';
+    var max=Math.max(m.benchmark,1);
+    var rows=m.scoreboard.slice().sort(function(a,b){return b.total-a.total;});
+    var html='<div class="sb-head">Data <span class="sb-rd">to '+m.benchmark+' · round '+m.roundNo+'</span></div>';
+    rows.forEach(function(r){
+      var pct=Math.min(100,Math.round(100*r.total/max));
+      var lead=m.matchWinner && r.name===m.matchWinnerName;
+      html+='<div class="sb-row"><span class="sb-name">'+esc(r.name)+'</span><span class="sb-bar"><span class="sb-fill'+(lead?' win':'')+'" style="width:'+pct+'%;"></span></span><span class="sb-val">'+r.total+'</span></div>';
+    });
+    el.innerHTML=html;
   }
 
   /* ---------- status helpers ---------- */
@@ -1095,6 +1205,10 @@ if (typeof window !== 'undefined') (function(){
   $('removeBotBtn').onclick=hostRemoveBot;
   $('startBtn').onclick=hostStart;
   $('plus1Opt').onchange=function(){ /* host only, reflected on start */ };
+  var benchTouched=false;
+  $('benchmarkInput').addEventListener('input', function(){ benchTouched=true; });
+  $('scoredOpt').onchange=function(){ $('benchmarkRow').style.display = this.checked?'block':'none'; };
+  window.__benchTouched = function(){ return benchTouched; };
 
   $('copyCodeBtn').onclick=function(){ copy(state.roomCode); this.textContent='Copied!'; var b=this; setTimeout(function(){b.textContent='Copy code';},1200); };
   $('copyLinkBtn').onclick=function(){ var url=location.origin+location.pathname+'?join='+state.roomCode; copy(url); this.textContent='Copied!'; var b=this; setTimeout(function(){b.textContent='Copy invite link';},1200); };
