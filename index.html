@@ -594,7 +594,7 @@ if (typeof window !== 'undefined') (function(){
   // literally shows its number (Point=1 dot, Line=2, Triangle=3 … Nonagon=9).
   var POLY = { triangle:[3,-90], square:[4,45], pentagon:[5,-90], hexagon:[6,0], heptagon:[7,-90], octagon:[8,22.5], nonagon:[9,-90] };
   // FACES card art (matches the board): colour field per value, solid shape, smiley, corner numerals.
-  var DECKCOL={0:'#141414',1:'#33B3A4',2:'#E8493A',3:'#F4F1E8',4:'#33B3A4',5:'#E8493A',6:'#F4F1E8',7:'#33B3A4',8:'#E8493A',9:'#F4F1E8'};
+  var DECKCOL={0:'#141414',1:'#33B3A4',2:'#E8493A',3:'#F4F1E8',4:'#33B3A4',5:'#E8493A',6:'#F4F1E8',7:'#33B3A4',8:'#E8493A',9:'#F4F1E8'}; /* build:faces-2 */
   function lumHex(hex){var x=hex.replace('#','');return (0.2126*parseInt(x.substr(0,2),16)+0.7152*parseInt(x.substr(2,2),16)+0.0722*parseInt(x.substr(4,2),16))/255;}
   function smileyFace(cx,cy,s,col){var e=s*0.18;return '<circle cx="'+(cx-s*0.5).toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+e.toFixed(1)+'" fill="'+col+'"/><circle cx="'+(cx+s*0.5).toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+e.toFixed(1)+'" fill="'+col+'"/><path d="M '+(cx-s*0.55).toFixed(1)+' '+(cy+s*0.45).toFixed(1)+' Q '+cx.toFixed(1)+' '+(cy+s*1.15).toFixed(1)+' '+(cx+s*0.55).toFixed(1)+' '+(cy+s*0.45).toFixed(1)+'" fill="none" stroke="'+col+'" stroke-width="'+(s*0.16).toFixed(2)+'" stroke-linecap="round"/>';}
   function shapeSolid(form,cx,cy,R,fill){
