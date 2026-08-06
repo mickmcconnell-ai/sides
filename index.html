@@ -215,7 +215,7 @@
           </div>
           <label class="opt" style="margin-top:16px;">
             <input type="checkbox" id="scoredOpt" checked/>
-            <span class="note"><b>Scored match</b> (Datum mode). Each round, the winner banks the points still in everyone else's hand (a card is worth its number of corners; the circle is worth 15). First to the <b>benchmark</b> wins the match. Off = single hand, first to empty wins.</span>
+            <span class="note"><b>Scored match</b> (Datum mode). Each round, the winner banks the points still in everyone else's hand (a card is worth its number of corners; the circle is worth 0). First to the <b>benchmark</b> wins the match. Off = single hand, first to empty wins.</span>
           </label>
           <div id="benchmarkRow" class="field" style="margin:6px 0 10px;">
             <label>Benchmark (points to win the match)</label>
@@ -581,21 +581,29 @@ if (typeof window !== 'undefined') (function(){
   function esc(s){ return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
 
   /* ---------- SVG card faces ---------- */
-  function polyPoints(cx,cy,rad,sides,rotDeg){
+  function polyPtsArr(cx,cy,rad,sides,rotDeg){
     var pts=[], a0=(rotDeg||0)*Math.PI/180;
     for(var i=0;i<sides;i++){ var a=a0 + i*2*Math.PI/sides; pts.push([cx+rad*Math.cos(a), cy+rad*Math.sin(a)]); }
-    return pts.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ');
+    return pts;
   }
-  // returns svg string for a form glyph centered in a viewBox 0..size
+  function polyPoints(cx,cy,rad,sides,rotDeg){
+    return polyPtsArr(cx,cy,rad,sides,rotDeg).map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1);}).join(' ');
+  }
+  // returns svg string for a form glyph centered in a viewBox 0..size.
+  // The vertices ARE the points: each corner carries a prominent dot, so a card
+  // literally shows its number (Point=1 dot, Line=2, Triangle=3 … Nonagon=9).
   var POLY = { triangle:[3,90], square:[4,45], pentagon:[5,-90], hexagon:[6,0], heptagon:[7,-90], octagon:[8,22.5], nonagon:[9,-90] };
   function glyph(form, size, stroke, sw){
     var c=size/2, r=size*0.30;
     stroke = stroke||'#211F1A'; sw = sw||2;
-    if(form==='point'){ return '<circle cx="'+c+'" cy="'+c+'" r="'+(size*0.085).toFixed(1)+'" fill="'+stroke+'"/>'; }
-    if(form==='line'){ return '<line x1="'+(c-r)+'" y1="'+c+'" x2="'+(c+r)+'" y2="'+c+'" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linecap="round"/>'; }
+    var vr = Math.max(2.2, size*0.05); // vertex-dot radius
+    function dots(pts){ return pts.map(function(p){ return '<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="'+vr.toFixed(1)+'" fill="'+stroke+'"/>'; }).join(''); }
+    if(form==='point'){ return '<circle cx="'+c+'" cy="'+c+'" r="'+Math.max(2.6,size*0.06).toFixed(1)+'" fill="'+stroke+'"/>'; }
+    if(form==='line'){ return '<line x1="'+(c-r)+'" y1="'+c+'" x2="'+(c+r)+'" y2="'+c+'" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linecap="round"/>'+dots([[c-r,c],[c+r,c]]); }
     if(form==='circle'){ return '<circle cx="'+c+'" cy="'+c+'" r="'+(r*1.02)+'" fill="#B58A2C" stroke="#8f6d1f" stroke-width="1"/>'; }
     var p=POLY[form]; if(!p) return '';
-    return '<polygon points="'+polyPoints(c,c,r,p[0],p[1])+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linejoin="round"/>';
+    var pts=polyPtsArr(c,c,r,p[0],p[1]);
+    return '<polygon points="'+pts.map(function(q){return q[0].toFixed(1)+','+q[1].toFixed(1);}).join(' ')+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linejoin="round"/>'+dots(pts);
   }
   // full card svg; w in px
   function cardSVG(form, w){
@@ -611,12 +619,13 @@ if (typeof window !== 'undefined') (function(){
     if(isCircle){ main = '<circle cx="'+cx+'" cy="'+cy+'" r="'+R*1.18+'" fill="#B58A2C" stroke="#8f6d1f" stroke-width="1.5"/>'; }
     // center the glyph on the construction circle (cx,cy); glyph() centers within its own wxw box
     else { main = '<g transform="translate(0,'+(cy - w/2).toFixed(2)+')">'+ glyph(form, w, '#211F1A', Math.max(2, w*0.028)) +'</g>'; }
-    // corner point-value (the datum): a card's number of corners; the circle (the null) is 15
-    var pv = pointsOf(form), pvColor = isCircle?'#B58A2C':'#211F1A', fs = w*0.155;
-    var cornerNum = function(x,y,rot){
-      return '<text x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" font-size="'+fs.toFixed(1)+'" fill="'+pvColor+'" font-family="Helvetica Neue,Arial,sans-serif" font-weight="800" text-anchor="middle"'+(rot?' transform="rotate(180 '+x.toFixed(1)+' '+y.toFixed(1)+')"':'')+'>'+pv+'</text>';
+    // corner point-value (the datum): a card's number of corners; the circle (the null) is 0.
+    // Single top-left index (playing-card style); the vertices already show the count.
+    var pv = pointsOf(form), pvColor = isCircle?'#B58A2C':'#211F1A', fs = w*0.15;
+    var cornerNum = function(x,y){
+      return '<text x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" font-size="'+fs.toFixed(1)+'" fill="'+pvColor+'" font-family="Helvetica Neue,Arial,sans-serif" font-weight="800" text-anchor="middle">'+pv+'</text>';
     };
-    var corners = (w>=46) ? cornerNum(w*0.16, h*0.135) + cornerNum(w*0.84, h*0.895, true) : '';
+    var corners = (w>=46) ? cornerNum(w*0.155, h*0.145) : '';
     var svg = '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" xmlns="http://www.w3.org/2000/svg">'+
       '<rect x="1.5" y="1.5" width="'+(w-3)+'" height="'+(h-3)+'" rx="7" fill="'+cardFill+'" stroke="'+border+'" stroke-width="1.5"/>'+
       '<rect x="5" y="5" width="'+(w-10)+'" height="'+(h-10)+'" rx="5" fill="none" stroke="#d8cfb8" stroke-width="1"/>'+
