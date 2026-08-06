@@ -259,7 +259,7 @@
           <summary>Rules reference ▾</summary>
           <div class="rbody">
             <p><b>Ladder (by points):</b> Point 1 ▸ Line 2 ▸ Triangle 3 ▸ Square 4 ▸ Pentagon 5 ▸ Hexagon 6 ▸ Heptagon 7 ▸ Octagon 8 ▸ Nonagon 9. A card is worth its points (corners); the circle is 0.</p>
-            <p><b>Play up or down.</b> Each turn, play a form <i>one or two rungs above</i> the centre (up the ladder · clockwise) or <i>one or two below</i> (down · counter-clockwise). You never play the centre form itself.</p>
+            <p><b>Play up or down.</b> Each turn, play a form <i>one rung above</i> the centre (up the ladder · clockwise) or <i>one rung below</i> (down · counter-clockwise) — the very next number either way. You never play the centre form itself.</p>
             <p><b>Stack for distance.</b> Play several copies of that same up/down shape to move that many seats — two squares = two seats, three = three. No limit. Which way you go sets the direction.</p>
             <p><b>Circle</b> — the only wild, legal on any form. Name the next form and choose a direction. Moves one seat. Never stacks.</p>
             <p><b>Walls</b> — no wrap. At the Point (bottom) you can only go up; at the Nonagon (top) only down.</p>
@@ -310,7 +310,7 @@
    ======================================================================= */
 var FORMS = ['point','line','triangle','square','pentagon','hexagon','heptagon','octagon','nonagon'];
 var CW = 1, CCW = -1;
-var REACH = 2; // a play may land 1..REACH rungs up or down. REACH=1 => strict one-rung (the 5-form game).
+var REACH = 1; // strict adjacency: a play must be exactly one rung up or down. (Verified: full 9-form ladder still terminates 100%.)
 function rankOf(f){ return FORMS.indexOf(f); }
 function mod(a,n){ return ((a % n) + n) % n; }
 // Datum scoring: a card is worth its number of points (corners). The point is 1, up to the nonagon at 9. The circle (the null) has no corners = 0.
@@ -1138,9 +1138,9 @@ if (typeof window !== 'undefined') (function(){
     var legal = hasAnyLegal(v.myHand, v.activeForm);
     if(!legal){
       bar.appendChild(mkBtn('Draw a card','gold', function(){ submitAction({type:'draw'}); }));
-      $('hint').textContent='No form within two rungs of '+v.activeForm+', and no circle — you must draw.';
+      $('hint').textContent='No form one rung either side of '+v.activeForm+', and no circle — you must draw.';
     } else {
-      $('hint').textContent='Centre is '+v.activeForm+'. Tap a form up to two rungs above (clockwise) or below (counter-clockwise); tap several of one shape to move that many seats. Circle = wild.';
+      $('hint').textContent='Centre is '+v.activeForm+'. Tap the form one rung above (clockwise) or below (counter-clockwise); tap several of one shape to move that many seats. Circle = wild.';
     }
   }
 
