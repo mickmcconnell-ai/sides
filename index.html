@@ -596,9 +596,9 @@ if (typeof window !== 'undefined') (function(){
   function glyph(form, size, stroke, sw){
     var c=size/2, r=size*0.30;
     stroke = stroke||'#211F1A'; sw = sw||2;
-    var vr = Math.max(2.2, size*0.05); // vertex-dot radius
+    var vr = Math.max(1.8, size*0.042); // vertex-dot radius (the "points")
     function dots(pts){ return pts.map(function(p){ return '<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="'+vr.toFixed(1)+'" fill="'+stroke+'"/>'; }).join(''); }
-    if(form==='point'){ return '<circle cx="'+c+'" cy="'+c+'" r="'+Math.max(2.6,size*0.06).toFixed(1)+'" fill="'+stroke+'"/>'; }
+    if(form==='point'){ return '<circle cx="'+c+'" cy="'+c+'" r="'+Math.max(2.2,size*0.052).toFixed(1)+'" fill="'+stroke+'"/>'; }
     if(form==='line'){ return '<line x1="'+(c-r)+'" y1="'+c+'" x2="'+(c+r)+'" y2="'+c+'" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linecap="round"/>'+dots([[c-r,c],[c+r,c]]); }
     if(form==='circle'){ return '<circle cx="'+c+'" cy="'+c+'" r="'+(r*1.02)+'" fill="#B58A2C" stroke="#8f6d1f" stroke-width="1"/>'; }
     var p=POLY[form]; if(!p) return '';
@@ -618,7 +618,7 @@ if (typeof window !== 'undefined') (function(){
     var main;
     if(isCircle){ main = '<circle cx="'+cx+'" cy="'+cy+'" r="'+R*1.18+'" fill="#B58A2C" stroke="#8f6d1f" stroke-width="1.5"/>'; }
     // center the glyph on the construction circle (cx,cy); glyph() centers within its own wxw box
-    else { main = '<g transform="translate(0,'+(cy - w/2).toFixed(2)+')">'+ glyph(form, w, '#211F1A', Math.max(2, w*0.028)) +'</g>'; }
+    else { main = '<g transform="translate(0,'+(cy - w/2).toFixed(2)+')">'+ glyph(form, w, '#211F1A', Math.max(1.4, w*0.02)) +'</g>'; }
     // corner point-value (the datum): a card's number of corners; the circle (the null) is 0.
     // Single top-left index (playing-card style); the vertices already show the count.
     var pv = pointsOf(form), pvColor = isCircle?'#B58A2C':'#211F1A', fs = w*0.15;
