@@ -644,42 +644,76 @@ if (typeof window !== 'undefined') (function(){
     // host is seat 0
     state.seatDesc = [{id:'host', name:state.myName, isBot:false, connected:true}];
     var t = topicsFor(code); state.topics = t;
-    var opened = false;
-    var cli = mqttConnect({
-      clientId: 'sides-host-'+code+'-'+rid(),
-      will: { topic: t.all, payload: JSON.stringify({t:'hostGone'}), qos:1, retain:false }
-    });
-    state.mqtt = cli;
     setLanding('Creating your table…');
-    cli.on('connect', function(){
-      if(opened) return; opened = true;
-      cli.subscribe(t.hub, {qos:1}, function(err){
-        if(err){ setLanding('Broker error — try again in a moment.'); return; }
-        show('lobby'); renderLobby(); setConn('Hosting · table '+code);
+    ensureMqtt(function(){
+      var opened = false, cli;
+      try{
+        cli = mqttConnect({
+          clientId: 'sides-host-'+code+'-'+rid(),
+          will: { topic: t.all, payload: JSON.stringify({t:'hostGone'}), qos:1, retain:false }
+        });
+      }catch(e){ setLanding('Couldn’t start the connection ('+((e&&e.message)||e)+'). Reload and try again.'); return; }
+      state.mqtt = cli;
+      var watchdog = setTimeout(function(){
+        if(opened) return;
+        try{ cli.end(true); }catch(e){}
+        setLanding('Couldn’t reach the relay server. Check your internet (some corporate/school networks block it), then tap Host again.');
+      }, 12000);
+      cli.on('connect', function(){
+        if(opened) return; opened = true; clearTimeout(watchdog);
+        cli.subscribe(t.hub, {qos:1}, function(err){
+          if(err){ setLanding('Broker error — try again in a moment.'); return; }
+          show('lobby'); renderLobby(); setConn('Hosting · table '+code);
+        });
       });
+      cli.on('message', function(topic, payload){
+        if(topic!==t.hub) return;
+        var msg; try{ msg = JSON.parse(payload.toString()); }catch(e){ return; }
+        hostHandleMsg(msg);
+      });
+      cli.on('error', function(e){ if(!opened) setLanding('Connection error: '+((e&&e.message)||e)+'. Retrying…'); });
+    }, function(){
+      setLanding('Couldn’t load the connection library — an ad-blocker or network filter may be blocking it. Allow jsdelivr/unpkg and reload.');
     });
-    cli.on('message', function(topic, payload){
-      if(topic!==t.hub) return;
-      var msg; try{ msg = JSON.parse(payload.toString()); }catch(e){ return; }
-      hostHandleMsg(msg);
-    });
-    cli.on('error', function(e){ setLanding('Connection error: '+((e&&e.message)||e)+'. Try again.'); });
   }
 
   /* ---- transport: MQTT-over-WebSocket relay (every device dials OUT to a public
      broker, so there is no P2P/NAT hole-punching — works across any networks) ---- */
-  var BROKER = 'wss://broker.emqx.io:8084/mqtt';
+  // Relay is overridable via ?broker=wss://host:port/mqtt so we can swap without redeploying.
+  // NOTE: host and joiner MUST end up on the SAME broker to see each other — so the relay
+  // is NOT auto-rotated; both sides use this one URL (or whatever ?broker= the link carries).
+  function pickBroker(){
+    try{ var q=new URLSearchParams(location.search).get('broker'); if(q && /^wss:\/\//.test(q)) return q; }catch(e){}
+    return 'wss://broker.emqx.io:8084/mqtt';
+  }
+  var BROKER = pickBroker();
   function rid(){ return 'x'+Math.random().toString(36).slice(2,10); }
   function topicsFor(code){ return {
     hub: 'sides/'+code+'/h',              // clients -> host
     all: 'sides/'+code+'/all',            // host -> everyone (lobby, host-gone)
     cli: function(id){ return 'sides/'+code+'/c/'+id; }  // host -> one client (welcome, private state)
   };}
+  // Make sure the mqtt library actually loaded; if the primary CDN was blocked, try mirrors.
+  var MQTT_CDNS = [
+    'https://unpkg.com/mqtt@5/dist/mqtt.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js'
+  ];
+  function ensureMqtt(cb, fail){
+    if(typeof mqtt!=='undefined' && mqtt && mqtt.connect){ cb(); return; }
+    var i=0;
+    (function tryNext(){
+      if(i>=MQTT_CDNS.length){ fail&&fail(); return; }
+      var s=document.createElement('script'); s.src=MQTT_CDNS[i++];
+      s.onload=function(){ if(typeof mqtt!=='undefined' && mqtt && mqtt.connect) cb(); else tryNext(); };
+      s.onerror=tryNext;
+      document.head.appendChild(s);
+    })();
+  }
   function mqttConnect(opts){
     opts = opts||{};
     return mqtt.connect(BROKER, {
       clientId: opts.clientId || ('sides-'+rid()),
-      clean:true, keepalive:30, connectTimeout:9000, reconnectPeriod:3000,
+      clean:true, keepalive:30, connectTimeout:8000, reconnectPeriod:4000,
       will: opts.will
     });
   }
@@ -878,28 +912,40 @@ if (typeof window !== 'undefined') (function(){
     state.roomCode=code;
     var myId = rid(); state.myId = myId;
     var t = topicsFor(code); state.topics = t;
-    var cli = mqttConnect({
-      clientId: 'sides-'+code+'-'+myId,
-      will: { topic: t.hub, payload: JSON.stringify({from:myId, t:'bye'}), qos:1, retain:false }
-    });
-    state.mqtt = cli;
     setLanding('Connecting to table '+code+'…');
-    var joined=false;
-    var giveUp = setTimeout(function(){
-      if(!joined){ setLanding('Couldn’t reach table '+code+'. Make sure the host still has their tab open and the code is right, then tap Join again.'); }
-    }, 15000);
-    cli.on('connect', function(){
-      cli.subscribe([t.cli(myId), t.all], {qos:1}, function(err){
-        if(err){ setLanding('Broker error — try again in a moment.'); return; }
-        cli.publish(t.hub, JSON.stringify({from:myId, t:'hello', name:state.myName}), {qos:1});
+    ensureMqtt(function(){
+      var cli;
+      try{
+        cli = mqttConnect({
+          clientId: 'sides-'+code+'-'+myId,
+          will: { topic: t.hub, payload: JSON.stringify({from:myId, t:'bye'}), qos:1, retain:false }
+        });
+      }catch(e){ setLanding('Couldn’t start the connection ('+((e&&e.message)||e)+'). Reload and try again.'); return; }
+      state.mqtt = cli;
+      var joined=false, connected=false;
+      var giveUp = setTimeout(function(){
+        if(joined) return;
+        try{ cli.end(true); }catch(e){}
+        setLanding(connected
+          ? ('Reached the relay, but table '+code+' didn’t answer. Make sure the host still has their tab open and the code is exactly right, then tap Join again.')
+          : ('Couldn’t reach the relay server. Check your internet (some networks block it), then tap Join again.'));
+      }, 14000);
+      cli.on('connect', function(){
+        connected=true;
+        cli.subscribe([t.cli(myId), t.all], {qos:1}, function(err){
+          if(err){ setLanding('Broker error — try again in a moment.'); return; }
+          cli.publish(t.hub, JSON.stringify({from:myId, t:'hello', name:state.myName}), {qos:1});
+        });
       });
+      cli.on('message', function(topic, payload){
+        var msg; try{ msg = JSON.parse(payload.toString()); }catch(e){ return; }
+        if(msg.t==='welcome'){ joined=true; clearTimeout(giveUp); }
+        clientHandleMsg(msg);
+      });
+      cli.on('error', function(e){ if(!joined) setLanding('Connection error: '+((e&&e.message)||e)+'.'); });
+    }, function(){
+      setLanding('Couldn’t load the connection library — an ad-blocker or network filter may be blocking it. Allow jsdelivr/unpkg and reload.');
     });
-    cli.on('message', function(topic, payload){
-      var msg; try{ msg = JSON.parse(payload.toString()); }catch(e){ return; }
-      if(msg.t==='welcome'){ joined=true; clearTimeout(giveUp); }
-      clientHandleMsg(msg);
-    });
-    cli.on('error', function(e){ setLanding('Connection error: '+((e&&e.message)||e)+'.'); });
   }
 
   function clientHandleMsg(msg){
@@ -1204,7 +1250,7 @@ if (typeof window !== 'undefined') (function(){
   window.__benchTouched = function(){ return benchTouched; };
 
   $('copyCodeBtn').onclick=function(){ copy(state.roomCode); this.textContent='Copied!'; var b=this; setTimeout(function(){b.textContent='Copy code';},1200); };
-  $('copyLinkBtn').onclick=function(){ var url=location.origin+location.pathname+'?join='+state.roomCode; copy(url); this.textContent='Copied!'; var b=this; setTimeout(function(){b.textContent='Copy invite link';},1200); };
+  $('copyLinkBtn').onclick=function(){ var url=location.origin+location.pathname+'?join='+state.roomCode; if(BROKER!=='wss://broker.emqx.io:8084/mqtt') url+='&broker='+encodeURIComponent(BROKER); copy(url); this.textContent='Copied!'; var b=this; setTimeout(function(){b.textContent='Copy invite link';},1200); };
   function copy(t){ try{ navigator.clipboard.writeText(t); }catch(e){ var i=document.createElement('input'); i.value=t; document.body.appendChild(i); i.select(); document.execCommand('copy'); i.remove(); } }
 
   $('leaveLobbyBtn').onclick=leaveAll;
