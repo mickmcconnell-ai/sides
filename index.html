@@ -8,8 +8,8 @@
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5/dist/mqtt.min.js"></script>
 <style>
   :root{
-    --ink:#0A0A0A; --paper:#FFFFFF; --card:#FFFFFF; --gold:#FFE500;
-    --line:#e4e4e4; --ink-soft:#6b6b6b; --gold-soft:#FFE500;
+    --ink:#141414; --paper:#F4F1E8; --card:#FFFFFF; --gold:#33B3A4; --coral:#E8493A;
+    --line:#e0dccf; --ink-soft:#6b6b6b; --gold-soft:#33B3A4;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; height:100%;}
@@ -79,7 +79,7 @@
   .seatring{position:relative; height:300px; margin:2px auto 0; max-width:560px;}
   .seat{position:absolute; transform:translate(-50%,-50%); text-align:center; width:120px;}
   .seat .chip{display:inline-flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--ink); border-radius:40px; padding:6px 12px; font-size:13px; font-weight:700;}
-  .seat.turn .chip{background:var(--gold); border-color:var(--gold); box-shadow:0 0 0 4px rgba(181,138,44,.22);}
+  .seat.turn .chip{background:var(--gold); border-color:var(--gold); box-shadow:0 0 0 4px rgba(51,179,164,.28);}
   .seat .cnt{font-size:11px; color:var(--ink-soft); margin-top:4px; letter-spacing:.08em; text-transform:uppercase; font-weight:600;}
   .seat.turn .cnt{color:var(--ink);}
   .seat .badge{font-size:9px; letter-spacing:.1em; text-transform:uppercase; font-weight:800; padding:1px 5px; border-radius:2px;}
@@ -592,30 +592,36 @@ if (typeof window !== 'undefined') (function(){
   // returns svg string for a form glyph centered in a viewBox 0..size.
   // The vertices ARE the points: each corner carries a prominent dot, so a card
   // literally shows its number (Point=1 dot, Line=2, Triangle=3 … Nonagon=9).
-  var POLY = { triangle:[3,90], square:[4,45], pentagon:[5,-90], hexagon:[6,0], heptagon:[7,-90], octagon:[8,22.5], nonagon:[9,-90] };
-  // Refined BOLD faces (matches the deck): thin black strokes, prominent vertex dots.
-  function glyph(form, size){
-    var c=size/2, r=size*0.29, sw=Math.max(1.6,size*0.034), vr=Math.max(1.8,size*0.045);
-    function dots(pts){ return pts.map(function(p){ return '<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="'+vr.toFixed(1)+'" fill="#0A0A0A"/>'; }).join(''); }
-    if(form==='point'){ return '<circle cx="'+c+'" cy="'+c+'" r="'+(size*0.058).toFixed(1)+'" fill="#0A0A0A"/>'; }
-    if(form==='line'){ return '<line x1="'+(c-r)+'" y1="'+c+'" x2="'+(c+r)+'" y2="'+c+'" stroke="#0A0A0A" stroke-width="'+sw.toFixed(1)+'" stroke-linecap="round"/>'+dots([[c-r,c],[c+r,c]]); }
+  var POLY = { triangle:[3,-90], square:[4,45], pentagon:[5,-90], hexagon:[6,0], heptagon:[7,-90], octagon:[8,22.5], nonagon:[9,-90] };
+  // FACES card art (matches the board): colour field per value, solid shape, smiley, corner numerals.
+  var DECKCOL={0:'#141414',1:'#33B3A4',2:'#E8493A',3:'#F4F1E8',4:'#33B3A4',5:'#E8493A',6:'#F4F1E8',7:'#33B3A4',8:'#E8493A',9:'#F4F1E8'};
+  function lumHex(hex){var x=hex.replace('#','');return (0.2126*parseInt(x.substr(0,2),16)+0.7152*parseInt(x.substr(2,2),16)+0.0722*parseInt(x.substr(4,2),16))/255;}
+  function smileyFace(cx,cy,s,col){var e=s*0.18;return '<circle cx="'+(cx-s*0.5).toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+e.toFixed(1)+'" fill="'+col+'"/><circle cx="'+(cx+s*0.5).toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+e.toFixed(1)+'" fill="'+col+'"/><path d="M '+(cx-s*0.55).toFixed(1)+' '+(cy+s*0.45).toFixed(1)+' Q '+cx.toFixed(1)+' '+(cy+s*1.15).toFixed(1)+' '+(cx+s*0.55).toFixed(1)+' '+(cy+s*0.45).toFixed(1)+'" fill="none" stroke="'+col+'" stroke-width="'+(s*0.16).toFixed(2)+'" stroke-linecap="round"/>';}
+  function shapeSolid(form,cx,cy,R,fill){
+    if(form==='point'){ return '<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(R*0.2).toFixed(1)+'" fill="'+fill+'"/>'; }
+    if(form==='line'){ return '<line x1="'+(cx-R).toFixed(1)+'" y1="'+cy.toFixed(1)+'" x2="'+(cx+R).toFixed(1)+'" y2="'+cy.toFixed(1)+'" stroke="'+fill+'" stroke-width="'+(R*0.16).toFixed(1)+'"/>'; }
     var p=POLY[form]; if(!p) return '';
-    var pts=polyPtsArr(c,c,r,p[0],p[1]);
-    return '<polygon points="'+pts.map(function(q){return q[0].toFixed(1)+','+q[1].toFixed(1);}).join(' ')+'" fill="none" stroke="#0A0A0A" stroke-width="'+sw.toFixed(1)+'" stroke-linejoin="miter"/>'+dots(pts);
+    var pts=polyPtsArr(cx,cy,R,p[0],p[1]);
+    return '<polygon points="'+pts.map(function(q){return q[0].toFixed(1)+','+q[1].toFixed(1);}).join(' ')+'" fill="'+fill+'"/>';
   }
-  // full card svg; w in px. Wild = yellow card, white circle, black outline (matches the deck).
+  // full card svg; w in px. Matches the FACES board exactly.
   function cardSVG(form, w){
-    w = w||96; var h=Math.round(w*1.4);
-    var isCircle = form==='circle';
-    var bg = isCircle ? '#FFE500' : '#FFFFFF';
-    var bgRect = '<rect x="0" y="0" width="'+w+'" height="'+h+'" rx="'+(w*0.02).toFixed(1)+'" fill="'+bg+'"/>';
-    var border = '<rect x="'+(w*0.035).toFixed(1)+'" y="'+(w*0.035).toFixed(1)+'" width="'+(w-w*0.07).toFixed(1)+'" height="'+(h-w*0.07).toFixed(1)+'" rx="'+(w*0.015).toFixed(1)+'" fill="none" stroke="#0A0A0A" stroke-width="'+(w*0.032).toFixed(1)+'"/>';
-    var body;
-    if(isCircle){ body = '<circle cx="'+(w/2).toFixed(1)+'" cy="'+(h/2).toFixed(1)+'" r="'+(w*0.40).toFixed(1)+'" fill="#FFFFFF" stroke="#0A0A0A" stroke-width="'+(w*0.034).toFixed(1)+'"/>'; }
-    else { body = '<g transform="translate(0,'+((h/2)-(w/2)).toFixed(1)+')">'+ glyph(form, w) +'</g>'; }
-    var pv = pointsOf(form), fs = w*0.2;
-    var num = (w>=32) ? '<text x="'+(w*0.17).toFixed(1)+'" y="'+(h*0.185).toFixed(1)+'" font-size="'+fs.toFixed(1)+'" fill="#0A0A0A" font-family="Helvetica Neue,Arial,sans-serif" font-weight="800" text-anchor="middle">'+pv+'</text>' : '';
-    return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" xmlns="http://www.w3.org/2000/svg">'+bgRect+body+border+num+'</svg>';
+    w=w||96; var h=Math.round(w*1.4), cx=w/2, cy=h*0.46, R=w*0.24, v=pointsOf(form);
+    var isCircle=form==='circle', col=DECKCOL[v];
+    var isPaper=(col==='#F4F1E8'), isInk=(col==='#141414'), shape, numc;
+    if(isPaper){ shape='#141414'; numc='#141414'; }
+    else if(isInk){ shape='#F4F1E8'; numc='#F4F1E8'; }
+    else { shape='#141414'; numc=(lumHex(col)>0.62?'#141414':'#F4F1E8'); }
+    var s='<rect width="'+w+'" height="'+h+'" rx="'+(w*0.09).toFixed(1)+'" fill="'+col+'"/>';
+    s+='<rect x="'+(w*0.045).toFixed(1)+'" y="'+(w*0.045).toFixed(1)+'" width="'+(w-w*0.09).toFixed(1)+'" height="'+(h-w*0.09).toFixed(1)+'" rx="'+(w*0.06).toFixed(1)+'" fill="none" stroke="'+(isPaper?'#141414':'#F4F1E8')+'" stroke-width="'+(w*0.03).toFixed(1)+'" opacity="'+(isPaper?0.16:0.92)+'"/>';
+    if(isCircle){ s+='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+R.toFixed(1)+'" fill="none" stroke="'+shape+'" stroke-width="'+(w*0.05).toFixed(1)+'"/>'; }
+    else { s+=shapeSolid(form,cx,cy,R,shape); }
+    if(w>=30){
+      s+='<text x="'+(w*0.15).toFixed(1)+'" y="'+(h*0.17).toFixed(1)+'" font-family="Helvetica Neue,Arial,sans-serif" font-weight="900" font-size="'+(w*0.2).toFixed(1)+'" fill="'+numc+'" text-anchor="middle">'+v+'</text>';
+      s+='<text x="'+(w-w*0.13).toFixed(1)+'" y="'+(h-h*0.05).toFixed(1)+'" font-family="Helvetica Neue,Arial,sans-serif" font-weight="900" font-size="'+(w*0.09).toFixed(1)+'" fill="'+numc+'" text-anchor="middle">'+v+'</text>';
+    }
+    s+=smileyFace(cx, cy+R+h*0.075, w*0.05, shape);
+    return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" xmlns="http://www.w3.org/2000/svg">'+s+'</svg>';
   }
 
   /* ---------- hero ladder ---------- */
