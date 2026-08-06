@@ -320,9 +320,9 @@ function handPoints(hand){ var s=0; for(var i=0;i<hand.length;i++) s+=pointsOf(h
 
 function buildDeck(){
   var deck = [], id = 0, i, f, k;
-  for(i=0;i<FORMS.length;i++){ f=FORMS[i]; for(k=0;k<12;k++) deck.push({id:'c'+(id++), form:f}); }
+  for(i=0;i<FORMS.length;i++){ f=FORMS[i]; for(k=0;k<9;k++) deck.push({id:'c'+(id++), form:f}); }
   for(k=0;k<6;k++) deck.push({id:'c'+(id++), form:'circle'});
-  return deck; // 9 forms × 12 + 6 circle = 114
+  return deck; // 9 forms × 9 + 6 circle = 87
 }
 function shuffle(arr, rnd){
   rnd = rnd || Math.random;
