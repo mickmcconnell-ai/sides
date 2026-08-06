@@ -8,8 +8,8 @@
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5/dist/mqtt.min.js"></script>
 <style>
   :root{
-    --ink:#211F1A; --paper:#E8DFCC; --card:#F4EDDD; --gold:#B58A2C;
-    --line:#C9BFA8; --ink-soft:#5b554a; --gold-soft:#d9b866;
+    --ink:#0A0A0A; --paper:#FFFFFF; --card:#FFFFFF; --gold:#FFE500;
+    --line:#e4e4e4; --ink-soft:#6b6b6b; --gold-soft:#FFE500;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; height:100%;}
@@ -22,9 +22,9 @@
   }
   .wrap{max-width:1180px; margin:0 auto; padding:18px 18px 40px;}
   .mono{font-variant-numeric:tabular-nums;}
-  .kicker{font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--gold); font-weight:700;}
+  .kicker{display:inline-block; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--ink); background:var(--gold); padding:3px 8px; font-weight:900;}
   .muted{color:var(--ink-soft); font-weight:500;}
-  h1{font-size:64px; line-height:.9; letter-spacing:-.02em; margin:.1em 0 .05em; font-weight:800;}
+  h1{font-size:76px; line-height:.86; letter-spacing:-.04em; margin:.08em 0 .05em; font-weight:900; text-transform:uppercase;}
   h2{font-size:26px; letter-spacing:-.01em; margin:0 0 6px; font-weight:800;}
   .topbar{display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--ink); padding:10px 2px; margin-bottom:8px;}
   .topbar .brand{font-size:13px; letter-spacing:.26em; text-transform:uppercase; font-weight:700;}
@@ -75,7 +75,7 @@
 
   /* ---------- game ---------- */
   .game-grid{display:grid; grid-template-columns:1fr 300px; gap:18px; margin-top:8px;}
-  .table{position:relative; background:radial-gradient(120% 120% at 50% 40%, #efe7d4 0%, var(--paper) 70%); border:1px solid var(--ink); border-radius:6px; padding:14px; min-height:520px;}
+  .table{position:relative; background:#fff; border:2px solid var(--ink); border-radius:4px; padding:14px; min-height:520px;}
   .seatring{position:relative; height:300px; margin:2px auto 0; max-width:560px;}
   .seat{position:absolute; transform:translate(-50%,-50%); text-align:center; width:120px;}
   .seat .chip{display:inline-flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--ink); border-radius:40px; padding:6px 12px; font-size:13px; font-weight:700;}
@@ -86,11 +86,11 @@
   .badge.you{background:var(--gold); color:var(--ink);} .badge.bot{background:var(--ink); color:var(--paper);} .badge.off{background:#c0362c; color:#fff;}
   .center{position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center;}
   .center .active-card{filter:drop-shadow(0 6px 14px rgba(33,31,26,.22));}
-  .dirbadge{margin-top:10px; font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink); font-weight:700; display:inline-flex; gap:8px; align-items:center;}
-  .dirbadge .arrow{font-size:20px; color:var(--gold);}
+  .dirbadge{margin-top:10px; font-size:12px; letter-spacing:.16em; text-transform:uppercase; background:var(--ink); color:#fff; font-weight:900; display:inline-flex; gap:8px; align-items:center; padding:6px 12px; border-radius:2px;}
+  .dirbadge .arrow{font-size:18px; color:var(--gold);}
 
   .turnbar{text-align:center; margin:6px 0 2px; min-height:24px; font-size:14px; letter-spacing:.06em; font-weight:700;}
-  .turnbar .hl{color:var(--gold);}
+  .turnbar .hl{background:var(--gold); color:var(--ink); padding:0 6px; font-weight:900;}
 
   .handzone{margin-top:8px;}
   .handrow{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; min-height:150px; align-items:flex-end; padding:6px;}
@@ -118,7 +118,7 @@
   .wtally{color:var(--paper); font-weight:500; font-size:12px; opacity:.75; margin-left:6px;}
   .logbox .le{padding:3px 0; border-bottom:1px dotted var(--line);}
   .logbox .le b{font-weight:800;}
-  .logbox .le .g{color:var(--gold); font-weight:800;}
+  .logbox .le .g{color:var(--ink); font-weight:900;}
   .ref{border:1px solid var(--ink); border-radius:3px; padding:0; overflow:hidden;}
   .ref summary{padding:12px 14px; cursor:pointer; font-size:12px; letter-spacing:.16em; text-transform:uppercase; font-weight:700; list-style:none;}
   .ref summary::-webkit-details-marker{display:none;}
@@ -153,7 +153,7 @@
 <div class="wrap">
   <div class="topbar">
     <div class="brand">DATUM</div>
-    <div class="tag" id="statusTag">working name · playtest table</div>
+    <div class="tag" id="statusTag">control the order · playtest</div>
   </div>
 
   <!-- ===================== LANDING ===================== -->
@@ -162,8 +162,8 @@
       <div>
         <div class="kicker">Playtest build</div>
         <h1>DATUM</h1>
-        <div style="font-size:20px; letter-spacing:.02em; margin:6px 0 2px; font-weight:800;">The game of points. A line is two.</div>
-        <p class="note" style="max-width:420px; margin-top:10px;">A remote table for the founders. One person hosts, everyone else joins with a four-letter code. No sign-in, no install — it runs straight in the browser through a lightweight relay, so it works across different networks and phones. Empty seats can be filled with bots so two people can still test a real 3–6 handed game.</p>
+        <div style="font-size:22px; letter-spacing:-.01em; margin:8px 0 2px; font-weight:900; text-transform:uppercase;">Control the order.</div>
+        <p class="note" style="max-width:440px; margin-top:12px; font-size:14px;">Every card decides who plays next. One person hosts a table, everyone else joins with a four-letter code — no sign-in, no install. Empty seats fill with bots, so two people can pressure-test a real 3–6 handed game. Who plays next is up for grabs every turn.</p>
       </div>
       <div class="ladder" id="heroLadder"></div>
     </div>
@@ -175,12 +175,12 @@
       </div>
       <div class="row">
         <div style="flex:1; min-width:240px;">
-          <div class="kicker" style="color:var(--gold-soft);">Start a table</div>
+          <div class="kicker">Start a table</div>
           <p class="note" style="color:#cfc6b0;">You become the host and the source of truth for the game.</p>
           <button class="btn gold" id="hostBtn">Host a table</button>
         </div>
         <div style="flex:1; min-width:240px;">
-          <div class="kicker" style="color:var(--gold-soft);">Join a table</div>
+          <div class="kicker">Join a table</div>
           <div class="field" style="margin:8px 0;">
             <input type="text" id="codeInput" maxlength="4" placeholder="CODE" style="text-transform:uppercase; letter-spacing:.3em;"/>
           </div>
@@ -197,7 +197,7 @@
     <h2 id="lobbyTitle">Waiting for players</h2>
     <div class="lobby-grid">
       <div class="panel dark" id="codePanel">
-        <div class="kicker" style="color:var(--gold-soft);">Room code — share this</div>
+        <div class="kicker">Room code — share this</div>
         <div class="roomcode mono" id="roomCode">----</div>
         <div class="note" style="color:#cfc6b0;">Others open this same page, choose <b>Join</b>, and type the code. Keep this tab open — the game lives on the host.</div>
         <div class="actions" style="margin-top:14px;">
@@ -259,12 +259,12 @@
           <summary>Rules reference ▾</summary>
           <div class="rbody">
             <p><b>Ladder (by points):</b> Point 1 ▸ Line 2 ▸ Triangle 3 ▸ Square 4 ▸ Pentagon 5 ▸ Hexagon 6 ▸ Heptagon 7 ▸ Octagon 8 ▸ Nonagon 9. A card is worth its points (corners); the circle is 0.</p>
-            <p><b>Play up or down.</b> Each turn, play a form <i>one rung above</i> the centre (up the ladder · clockwise) or <i>one rung below</i> (down · counter-clockwise) — the very next number either way. You never play the centre form itself.</p>
-            <p><b>Stack for distance.</b> Play several copies of that same up/down shape to move that many seats — two squares = two seats, three = three. No limit. Which way you go sets the direction.</p>
-            <p><b>Circle</b> — the only wild, legal on any form. Name the next form and choose a direction. Moves one seat. Never stacks.</p>
-            <p><b>Walls</b> — no wrap. At the Point (bottom) you can only go up; at the Nonagon (top) only down.</p>
-            <p><b>Blocked</b> — if you can't step, stack, or circle, draw one. Play it if it's legal, otherwise pass.</p>
-            <p><b>Win</b> — first to empty their hand, even on a stack or circle.</p>
+            <p><b>Direction — you set it.</b> Play a form one rung higher than the centre and the turn goes <b>right</b>; one rung lower and it goes <b>left</b> — the very next number either way. You never play the centre form itself.</p>
+            <p><b>Distance — you choose who's next.</b> Play several copies of that shape to jump that many seats — two = skip to the second player, three = the third. No limit. That's how you decide who plays next.</p>
+            <p><b>Circle — break the order.</b> Legal on any form. Name the next shape, choose a direction, worth 0. Never stacks. The card everyone fears.</p>
+            <p><b>Walls</b> — no wrap. At the Point (bottom) you can only climb up; at the Nonagon (top) only down.</p>
+            <p><b>Cornered</b> — if you can't step, stack, or break the order, draw one. Play it if it's legal, otherwise pass.</p>
+            <p><b>Win</b> — first to empty their hand takes the round.</p>
           </div>
         </details>
         <button class="btn ghost sm" id="leaveGameBtn">Leave game</button>
@@ -273,23 +273,23 @@
   </section>
 
   <div class="footer">
-    <div>Every card, a datum</div>
-    <div>Confidential working prototype · July 2026</div>
+    <div>The next player is never an accident</div>
+    <div>Confidential working prototype · Aug 2026</div>
   </div>
 </div>
 
 <!-- circle chooser overlay -->
 <div class="overlay" id="circleOverlay">
   <div class="modal">
-    <div class="kicker">The circle is wild</div>
-    <h2 style="margin:8px 0 2px;">Name the next form</h2>
-    <p class="note">Choose which form becomes active, then pick a direction.</p>
+    <div class="kicker">Break the order</div>
+    <h2 style="margin:8px 0 2px;">Name the next shape</h2>
+    <p class="note">Choose which shape becomes the centre, then point the game wherever it hurts.</p>
     <div class="formpick" id="circleForms"></div>
     <div class="kicker" style="margin-top:8px;">Direction</div>
     <div class="dirpick" id="circleDirs"></div>
     <div class="actions" style="justify-content:center;">
       <button class="btn ghost sm" id="circleCancel">Cancel</button>
-      <button class="btn gold" id="circleConfirm" disabled>Play circle</button>
+      <button class="btn gold" id="circleConfirm" disabled>Break the order</button>
     </div>
   </div>
 </div>
@@ -313,7 +313,7 @@ var CW = 1, CCW = -1;
 var REACH = 1; // strict adjacency: a play must be exactly one rung up or down. (Verified: full 9-form ladder still terminates 100%.)
 function rankOf(f){ return FORMS.indexOf(f); }
 function mod(a,n){ return ((a % n) + n) % n; }
-// Datum scoring: a card is worth its number of points (corners). The point is 1, up to the nonagon at 9. The circle (the null) has no corners = 0.
+// Datum scoring: a card is worth its number of points (corners). The point is 1, up to the nonagon at 9. The circle (the wild) has no corners = 0.
 var POINTS = {point:1, line:2, triangle:3, square:4, pentagon:5, hexagon:6, heptagon:7, octagon:8, nonagon:9, circle:0};
 function pointsOf(form){ return POINTS[form]||0; }
 function handPoints(hand){ var s=0; for(var i=0;i<hand.length;i++) s+=pointsOf(hand[i].form); return s; }
@@ -593,45 +593,29 @@ if (typeof window !== 'undefined') (function(){
   // The vertices ARE the points: each corner carries a prominent dot, so a card
   // literally shows its number (Point=1 dot, Line=2, Triangle=3 … Nonagon=9).
   var POLY = { triangle:[3,90], square:[4,45], pentagon:[5,-90], hexagon:[6,0], heptagon:[7,-90], octagon:[8,22.5], nonagon:[9,-90] };
-  function glyph(form, size, stroke, sw){
-    var c=size/2, r=size*0.30;
-    stroke = stroke||'#211F1A'; sw = sw||2;
-    var vr = Math.max(1.8, size*0.042); // vertex-dot radius (the "points")
-    function dots(pts){ return pts.map(function(p){ return '<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="'+vr.toFixed(1)+'" fill="'+stroke+'"/>'; }).join(''); }
-    if(form==='point'){ return '<circle cx="'+c+'" cy="'+c+'" r="'+Math.max(2.2,size*0.052).toFixed(1)+'" fill="'+stroke+'"/>'; }
-    if(form==='line'){ return '<line x1="'+(c-r)+'" y1="'+c+'" x2="'+(c+r)+'" y2="'+c+'" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linecap="round"/>'+dots([[c-r,c],[c+r,c]]); }
-    if(form==='circle'){ return '<circle cx="'+c+'" cy="'+c+'" r="'+(r*1.02)+'" fill="#B58A2C" stroke="#8f6d1f" stroke-width="1"/>'; }
+  // Refined BOLD faces (matches the deck): thin black strokes, prominent vertex dots.
+  function glyph(form, size){
+    var c=size/2, r=size*0.29, sw=Math.max(1.6,size*0.034), vr=Math.max(1.8,size*0.045);
+    function dots(pts){ return pts.map(function(p){ return '<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="'+vr.toFixed(1)+'" fill="#0A0A0A"/>'; }).join(''); }
+    if(form==='point'){ return '<circle cx="'+c+'" cy="'+c+'" r="'+(size*0.058).toFixed(1)+'" fill="#0A0A0A"/>'; }
+    if(form==='line'){ return '<line x1="'+(c-r)+'" y1="'+c+'" x2="'+(c+r)+'" y2="'+c+'" stroke="#0A0A0A" stroke-width="'+sw.toFixed(1)+'" stroke-linecap="round"/>'+dots([[c-r,c],[c+r,c]]); }
     var p=POLY[form]; if(!p) return '';
     var pts=polyPtsArr(c,c,r,p[0],p[1]);
-    return '<polygon points="'+pts.map(function(q){return q[0].toFixed(1)+','+q[1].toFixed(1);}).join(' ')+'" fill="none" stroke="'+stroke+'" stroke-width="'+sw+'" stroke-linejoin="round"/>'+dots(pts);
+    return '<polygon points="'+pts.map(function(q){return q[0].toFixed(1)+','+q[1].toFixed(1);}).join(' ')+'" fill="none" stroke="#0A0A0A" stroke-width="'+sw.toFixed(1)+'" stroke-linejoin="miter"/>'+dots(pts);
   }
-  // full card svg; w in px
+  // full card svg; w in px. Wild = yellow card, white circle, black outline (matches the deck).
   function cardSVG(form, w){
     w = w||96; var h=Math.round(w*1.4);
     var isCircle = form==='circle';
-    var cardFill = '#F4EDDD', border='#211F1A';
-    var cx=w/2, cy=h/2, R=w*0.30;
-    var construction = isCircle ? '' :
-      '<circle cx="'+cx+'" cy="'+cy+'" r="'+R*1.34+'" fill="none" stroke="#c9bfa8" stroke-width="1"/>'+
-      '<line x1="'+cx+'" y1="'+(cy-R*1.34)+'" x2="'+cx+'" y2="'+(cy+R*1.34)+'" stroke="#d8cfb8" stroke-width="1"/>'+
-      '<line x1="'+(cx-R*1.34)+'" y1="'+cy+'" x2="'+(cx+R*1.34)+'" y2="'+cy+'" stroke="#d8cfb8" stroke-width="1"/>';
-    var main;
-    if(isCircle){ main = '<circle cx="'+cx+'" cy="'+cy+'" r="'+R*1.18+'" fill="#B58A2C" stroke="#8f6d1f" stroke-width="1.5"/>'; }
-    // center the glyph on the construction circle (cx,cy); glyph() centers within its own wxw box
-    else { main = '<g transform="translate(0,'+(cy - w/2).toFixed(2)+')">'+ glyph(form, w, '#211F1A', Math.max(1.4, w*0.02)) +'</g>'; }
-    // corner point-value (the datum): a card's number of corners; the circle (the null) is 0.
-    // Single top-left index (playing-card style); the vertices already show the count.
-    var pv = pointsOf(form), pvColor = isCircle?'#B58A2C':'#211F1A', fs = w*0.15;
-    var cornerNum = function(x,y){
-      return '<text x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" font-size="'+fs.toFixed(1)+'" fill="'+pvColor+'" font-family="Helvetica Neue,Arial,sans-serif" font-weight="800" text-anchor="middle">'+pv+'</text>';
-    };
-    var corners = (w>=46) ? cornerNum(w*0.155, h*0.145) : '';
-    var svg = '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" xmlns="http://www.w3.org/2000/svg">'+
-      '<rect x="1.5" y="1.5" width="'+(w-3)+'" height="'+(h-3)+'" rx="7" fill="'+cardFill+'" stroke="'+border+'" stroke-width="1.5"/>'+
-      '<rect x="5" y="5" width="'+(w-10)+'" height="'+(h-10)+'" rx="5" fill="none" stroke="#d8cfb8" stroke-width="1"/>'+
-      construction + main + corners +
-      '</svg>';
-    return svg;
+    var bg = isCircle ? '#FFE500' : '#FFFFFF';
+    var bgRect = '<rect x="0" y="0" width="'+w+'" height="'+h+'" rx="'+(w*0.02).toFixed(1)+'" fill="'+bg+'"/>';
+    var border = '<rect x="'+(w*0.035).toFixed(1)+'" y="'+(w*0.035).toFixed(1)+'" width="'+(w-w*0.07).toFixed(1)+'" height="'+(h-w*0.07).toFixed(1)+'" rx="'+(w*0.015).toFixed(1)+'" fill="none" stroke="#0A0A0A" stroke-width="'+(w*0.032).toFixed(1)+'"/>';
+    var body;
+    if(isCircle){ body = '<circle cx="'+(w/2).toFixed(1)+'" cy="'+(h/2).toFixed(1)+'" r="'+(w*0.40).toFixed(1)+'" fill="#FFFFFF" stroke="#0A0A0A" stroke-width="'+(w*0.034).toFixed(1)+'"/>'; }
+    else { body = '<g transform="translate(0,'+((h/2)-(w/2)).toFixed(1)+')">'+ glyph(form, w) +'</g>'; }
+    var pv = pointsOf(form), fs = w*0.2;
+    var num = (w>=32) ? '<text x="'+(w*0.17).toFixed(1)+'" y="'+(h*0.185).toFixed(1)+'" font-size="'+fs.toFixed(1)+'" fill="#0A0A0A" font-family="Helvetica Neue,Arial,sans-serif" font-weight="800" text-anchor="middle">'+pv+'</text>' : '';
+    return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" xmlns="http://www.w3.org/2000/svg">'+bgRect+body+border+num+'</svg>';
   }
 
   /* ---------- hero ladder ---------- */
@@ -1126,7 +1110,7 @@ if (typeof window !== 'undefined') (function(){
         bar.appendChild(mkBtn('Play '+k+' '+formName+(k>1?'s':'')+' → move '+k, 'gold', function(){
           submitAction({type:'play', form:formName, count:k}); uiSel={cards:[],form:null};
         }));
-        $('hint').textContent=k+' '+formName+(k>1?'s':'')+' — '+(up?'up the ladder · clockwise':'down the ladder · counter-clockwise')+', turn moves '+k+' seat'+(k>1?'s':'')+'.';
+        $('hint').textContent=k+' '+formName+(k>1?'s':'')+' — turn goes '+(up?'right':'left')+', jumps '+k+' seat'+(k>1?'s':'')+'. You pick who plays next.';
       } else {
         $('hint').textContent='The centre is '+v.activeForm+' — play a form above or below it, not the centre itself.';
       }
@@ -1138,9 +1122,9 @@ if (typeof window !== 'undefined') (function(){
     var legal = hasAnyLegal(v.myHand, v.activeForm);
     if(!legal){
       bar.appendChild(mkBtn('Draw a card','gold', function(){ submitAction({type:'draw'}); }));
-      $('hint').textContent='No form one rung either side of '+v.activeForm+', and no circle — you must draw.';
+      $('hint').textContent='Nothing one rung either side of '+v.activeForm+', and no circle — you\'re cornered. Draw one.';
     } else {
-      $('hint').textContent='Centre is '+v.activeForm+'. Tap the form one rung above (clockwise) or below (counter-clockwise); tap several of one shape to move that many seats. Circle = wild.';
+      $('hint').textContent='Centre is '+v.activeForm+'. Play the shape one rung up (turn goes right) or down (left) — stack several to choose who plays next. The circle breaks the order.';
     }
   }
 
