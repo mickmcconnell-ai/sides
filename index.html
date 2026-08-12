@@ -4,7 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
 <meta name="robots" content="noindex,nofollow"/>
-<title>DATUM — playtest table</title>
+<title>SIDEWAYS — playtest table</title>
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5/dist/mqtt.min.js"></script>
 <style>
   :root{
@@ -152,8 +152,8 @@
 <body>
 <div class="wrap">
   <div class="topbar">
-    <div class="brand">DATUM</div>
-    <div class="tag" id="statusTag">control the order · playtest</div>
+    <div class="brand">SIDEWAYS</div>
+    <div class="tag" id="statusTag">send the game sideways · playtest</div>
   </div>
 
   <!-- ===================== LANDING ===================== -->
@@ -161,9 +161,9 @@
     <div class="hero">
       <div>
         <div class="kicker">Playtest build</div>
-        <h1>DATUM</h1>
-        <div style="font-size:22px; letter-spacing:-.01em; margin:8px 0 2px; font-weight:900; text-transform:uppercase;">Control the order.</div>
-        <p class="note" style="max-width:440px; margin-top:12px; font-size:14px;">Every card decides who plays next. One person hosts a table, everyone else joins with a four-letter code — no sign-in, no install. Empty seats fill with bots, so two people can pressure-test a real 3–6 handed game. Who plays next is up for grabs every turn.</p>
+        <h1>SIDEWAYS</h1>
+        <div style="font-size:22px; letter-spacing:-.01em; margin:8px 0 2px; font-weight:900; text-transform:uppercase;">Play the shape. Mess with the order.</div>
+        <p class="note" style="max-width:440px; margin-top:12px; font-size:14px;">Play the shape one step above or below the middle card — and shapes decide who plays next. One person hosts a table, everyone else joins with a four-letter code — no sign-in, no install. Empty seats fill with bots, so two people can pressure-test a real 3–6 handed game. Every turn, who goes next is up for grabs.</p>
       </div>
       <div class="ladder" id="heroLadder"></div>
     </div>
@@ -215,7 +215,7 @@
           </div>
           <label class="opt" style="margin-top:16px;">
             <input type="checkbox" id="scoredOpt" checked/>
-            <span class="note"><b>Scored match</b> (Datum mode). Each round, the winner banks the points still in everyone else's hand (a card is worth its number of corners; the circle is worth 0). First to the <b>benchmark</b> wins the match. Off = single hand, first to empty wins.</span>
+            <span class="note"><b>Scored match</b> (SIDEWAYS mode). Each round, the winner banks the points still in everyone else's hand (a card is worth its number of corners; the circle is worth 0). First to the <b>benchmark</b> wins the match. Off = single hand, first to empty wins.</span>
           </label>
           <div id="benchmarkRow" class="field" style="margin:6px 0 10px;">
             <label>Benchmark (points to win the match)</label>
@@ -394,6 +394,8 @@ function newGame(playerDescs, opts){
   };
 }
 
+function onCardPlayed(g, seat, rnd){ /* SIDE! rule removed */ }
+
 function topForm(g){ return g.activeForm; }
 function seatOf(g, id){ for(var i=0;i<g.players.length;i++) if(g.players[i].id===id) return i; return -1; }
 function pushLog(g, entry){ g.log.push(entry); if(g.log.length>120) g.log.shift(); }
@@ -458,6 +460,7 @@ function applyAction(g, seat, action, rnd){
     g.direction = up?CW:CCW;
     checkWin(g,seat);
     pushLog(g,{seat:seat,name:name,kind:up?'up':'down',text:'played '+cnt+' '+nf+(cnt>1?'s':'')+' — '+(up?'up · clockwise':'down · counter-clockwise')+' · moves '+cnt});
+    onCardPlayed(g,seat,rnd);
     if(!g.winner) advance(g,cnt);
     return {ok:true};
   }
@@ -471,6 +474,7 @@ function applyAction(g, seat, action, rnd){
     g.direction = (action.namedDir===CCW)?CCW:CW;
     checkWin(g,seat);
     pushLog(g,{seat:seat,name:name,kind:'circle',text:'played the circle → '+nform+' · '+(g.direction===CW?'clockwise':'counter-clockwise')});
+    onCardPlayed(g,seat,rnd);
     if(!g.winner) advance(g,1);
     return {ok:true};
   }
@@ -496,13 +500,13 @@ function playSingleCard(g, seat, card, action, prefix){
     removeCards(pl.hand,[card.id]); g.discard.push(card);
     g.activeForm=nform; g.direction=ndir; checkWin(g,seat);
     pushLog(g,{seat:seat,name:name,kind:'circle',text:prefix+'played the circle → '+nform+' · '+(ndir===CW?'clockwise':'counter-clockwise')});
-    if(!g.winner) advance(g,1); return {ok:true};
+    onCardPlayed(g,seat); if(!g.winner) advance(g,1); return {ok:true};
   }
   removeCards(pl.hand,[card.id]); g.discard.push(card);
   var up = cr>r;
   g.activeForm=card.form; g.direction=up?CW:CCW; checkWin(g,seat);
   pushLog(g,{seat:seat,name:name,kind:up?'up':'down',text:prefix+'played a '+card.form+' — '+(up?'up · clockwise':'down · counter-clockwise')});
-  if(!g.winner) advance(g,1); return {ok:true};
+  onCardPlayed(g,seat); if(!g.winner) advance(g,1); return {ok:true};
 }
 
 /* ---- bot: pick an action object for the current seat ---- */
@@ -595,7 +599,15 @@ if (typeof window !== 'undefined') (function(){
   // literally shows its number (Point=1 dot, Line=2, Triangle=3 … Nonagon=9).
   var POLY = { triangle:[3,-90], square:[4,45], pentagon:[5,-90], hexagon:[6,0], heptagon:[7,-90], octagon:[8,22.5], nonagon:[9,-90] };
   // FACES card art (matches the board): colour field per value, solid shape, smiley, corner numerals.
-  var DECKCOL={0:'#141414',1:'#33B3A4',2:'#E8493A',3:'#F4F1E8',4:'#33B3A4',5:'#E8493A',6:'#F4F1E8',7:'#33B3A4',8:'#E8493A',9:'#F4F1E8'}; /* build:faces-13-draw-ends-turn */
+  var DECKCOL={0:'#141414',1:'#33B3A4',2:'#E8493A',3:'#F4F1E8',4:'#33B3A4',5:'#E8493A',6:'#F4F1E8',7:'#33B3A4',8:'#E8493A',9:'#F4F1E8'}; /* build:sideways-2-no-side */
+  // SIDEWAYS: colour = ENERGY, never information. Each card's field colour is a stable hash of its id — varies across copies, never signals the shape.
+  var FIELDS=['#33B3A4','#E8493A','#FFD23E'];
+  function fieldColorForSeed(seed){
+    if(typeof seed==='string' && seed.charAt(0)==='#') return seed;
+    if(typeof seed==='string'){ var n=2166136261; for(var i=0;i<seed.length;i++){ n^=seed.charCodeAt(i); n=(n*16777619)>>>0; } n=(n^(n>>>13))>>>0; return FIELDS[n%FIELDS.length]; }
+    if(typeof seed==='number' && isFinite(seed)) return FIELDS[((seed%3)+3)%3];
+    return FIELDS[0];
+  }
   function lumHex(hex){var x=hex.replace('#','');return (0.2126*parseInt(x.substr(0,2),16)+0.7152*parseInt(x.substr(2,2),16)+0.0722*parseInt(x.substr(4,2),16))/255;}
   function smileyFace(cx,cy,s,col){var e=s*0.18;return '<circle cx="'+(cx-s*0.5).toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+e.toFixed(1)+'" fill="'+col+'"/><circle cx="'+(cx+s*0.5).toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+e.toFixed(1)+'" fill="'+col+'"/><path d="M '+(cx-s*0.55).toFixed(1)+' '+(cy+s*0.45).toFixed(1)+' Q '+cx.toFixed(1)+' '+(cy+s*1.15).toFixed(1)+' '+(cx+s*0.55).toFixed(1)+' '+(cy+s*0.45).toFixed(1)+'" fill="none" stroke="'+col+'" stroke-width="'+(s*0.16).toFixed(2)+'" stroke-linecap="round"/>';}
   var _sphn=0;
@@ -623,13 +635,15 @@ if (typeof window !== 'undefined') (function(){
     return s;
   }
   var OSIZE={triangle:1.28,square:1.12,pentagon:1.05,hexagon:1.02,heptagon:1.0,octagon:0.99,nonagon:0.98};
+  // SIDEWAYS geometry: BLACK OUTLINE + WHITE INTERIOR (colour lives only on the field). fill arg ignored.
   function shapeSolid(form,cx,cy,R,fill){
-    if(form==='point'){ return '<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(R*0.34).toFixed(1)+'" fill="'+fill+'"/>'; }
-    if(form==='line'){ return '<rect x="'+(cx-R*1.02).toFixed(1)+'" y="'+(cy-R*0.21).toFixed(1)+'" width="'+(R*2.04).toFixed(1)+'" height="'+(R*0.42).toFixed(1)+'" fill="'+fill+'"/>'; }
+    var INK='#141414', WH='#FFFFFF';
+    if(form==='point'){ return '<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(R*0.34).toFixed(1)+'" fill="'+INK+'"/>'; }
+    if(form==='line'){ var half=R*1.05; return '<line x1="'+(cx-half).toFixed(1)+'" y1="'+cy.toFixed(1)+'" x2="'+(cx+half).toFixed(1)+'" y2="'+cy.toFixed(1)+'" stroke="'+INK+'" stroke-width="'+(R*0.34).toFixed(1)+'" stroke-linecap="round"/>'; }
     var p=POLY[form]; if(!p) return '';
     var rr=R*(OSIZE[form]||1);
     var pts=polyPtsArr(cx,cy,rr,p[0],p[1]);
-    return '<polygon points="'+pts.map(function(q){return q[0].toFixed(1)+','+q[1].toFixed(1);}).join(' ')+'" fill="'+fill+'"/>';
+    return '<polygon points="'+pts.map(function(q){return q[0].toFixed(1)+','+q[1].toFixed(1);}).join(' ')+'" fill="'+WH+'" stroke="'+INK+'" stroke-width="'+(R*0.30).toFixed(1)+'" stroke-linejoin="round"/>';
   }
   // full card svg; w in px. Matches the FACES board exactly.
   var WILDMOODS=['happy','wink','smug','surprised','worried','grin'];
@@ -638,11 +652,9 @@ if (typeof window !== 'undefined') (function(){
   function charIdxForId(id){ if(!id) return 0; var n=0; for(var i=0;i<id.length;i++) n=(n*31+id.charCodeAt(i))>>>0; return n%WILDCHARS.length; }
   function cardSVG(form, w, mood){
     w=w||96; var h=Math.round(w*1.4), cx=w/2, cy=h*0.46, R=w*0.24, v=pointsOf(form);
-    var isCircle=form==='circle', col=DECKCOL[v];
-    var isPaper=(col==='#F4F1E8'), isInk=(col==='#141414'), shape, numc;
-    if(isPaper){ shape='#141414'; numc='#141414'; }
-    else if(isInk){ shape='#F4F1E8'; numc='#F4F1E8'; }
-    else { shape='#141414'; numc=(lumHex(col)>0.62?'#141414':'#F4F1E8'); }
+    var isCircle=form==='circle';
+    var col=isCircle?DECKCOL[v]:fieldColorForSeed(mood);   // non-info colour for numbered cards
+    var shape='#141414', numc=(lumHex(col)>0.62?'#141414':'#F4F1E8');
     // white border stock + inset colour panel
     var m=w*0.052, PW=w-2*m, PH=h-2*m, FT='Helvetica Neue,Arial,sans-serif';
     var s='<rect width="'+w+'" height="'+h+'" rx="'+(w*0.09).toFixed(1)+'" fill="#FFFFFF"/>';
@@ -667,7 +679,7 @@ if (typeof window !== 'undefined') (function(){
       s+='<rect x="'+m.toFixed(1)+'" y="'+m.toFixed(1)+'" width="'+PW.toFixed(1)+'" height="'+PH.toFixed(1)+'" rx="'+(w*0.055).toFixed(1)+'" fill="'+col+'"/>';
       s+=shapeSolid(form,cx,cy,R,shape);
       if(w>=30){
-        var isz=w*0.155, tx=w*0.14, ty=h*0.155;
+        var isz=w*0.135, tx=w*0.135, ty=h*0.14;
         var idx='<text x="'+tx.toFixed(1)+'" y="'+ty.toFixed(1)+'" font-family="Helvetica Neue,Arial,sans-serif" font-weight="900" font-size="'+isz.toFixed(1)+'" fill="'+numc+'" text-anchor="start">'+v+'</text>';
         s+=idx+'<g transform="rotate(180 '+(w/2).toFixed(1)+' '+(h/2).toFixed(1)+')">'+idx+'</g>';
       }
@@ -679,7 +691,7 @@ if (typeof window !== 'undefined') (function(){
   function renderHero(){
     var el=$('heroLadder'); var forms=['point','line','triangle','square','pentagon','hexagon','heptagon','octagon','nonagon','circle'];
     var html='';
-    forms.forEach(function(f){ html+='<div style="width:44px; height:62px;">'+cardSVG(f,44)+'</div>'; });
+    forms.forEach(function(f){ html+='<div style="width:44px; height:62px;">'+cardSVG(f,44,f==='circle'?0:('hero-'+f))+'</div>'; });
     el.innerHTML=html;
     try{ setOllie('happy'); }catch(e){}
   }
@@ -889,7 +901,7 @@ if (typeof window !== 'undefined') (function(){
     res.winnerTotal = m.scores[winId];
     m.lastResult = res;
     if(m.scores[winId] >= m.benchmark){ m.matchWinner = winId; }
-    pushLog(g,{kind:'sys',text:winName+' clears their data — banks '+res.gain+' pts (total '+res.winnerTotal+'/'+m.benchmark+')'+(m.matchWinner?' — MATCH!':'')});
+    pushLog(g,{kind:'sys',text:winName+' goes out — banks '+res.gain+' pts (total '+res.winnerTotal+'/'+m.benchmark+')'+(m.matchWinner?' — MATCH!':'')});
   }
 
   function afterStateChange(){
@@ -911,6 +923,7 @@ if (typeof window !== 'undefined') (function(){
     var g=state.game; if(!g || g.winner) return;
     var cur = g.players[g.turnSeat];
     if(cur.isBot){
+      // If a bot is sitting silent on one card, slow the table so a human can shout "Catch!"
       state.botTimer = setTimeout(function(){
         state.botTimer=null;
         if(!state.game || state.game.winner) return;
@@ -941,6 +954,7 @@ if (typeof window !== 'undefined') (function(){
     return {
       roomCode: state.roomCode,
       activeForm: g.activeForm,
+      activeCardId: (g.discard && g.discard.length)? g.discard[g.discard.length-1].id : null,
       direction: g.direction,
       turnSeat: g.turnSeat,
       dealerSeat: g.dealerSeat,
@@ -1113,7 +1127,7 @@ if (typeof window !== 'undefined') (function(){
     // center active card + direction
     var dirArrow = v.direction===CW? '↻':'↺';
     var dirTxt = v.direction===CW? 'Clockwise':'Counter-clockwise';
-    var center='<div class="center"><div class="active-card">'+cardSVG(v.activeForm,86)+'</div>'+
+    var center='<div class="center"><div class="active-card">'+cardSVG(v.activeForm,86,v.activeForm==='circle'?0:(v.activeCardId||v.activeForm))+'</div>'+
       '<div class="dirbadge"><span class="arrow">'+dirArrow+'</span>'+ dirTxt +'</div></div>';
     var html=center;
     for(var i=0;i<n;i++){
@@ -1147,7 +1161,7 @@ if (typeof window !== 'undefined') (function(){
       var selIdx = uiSel.cards.indexOf(card.id);
       var cls='pcard'+(selIdx>=0?' sel':'');
       var div=document.createElement('div');
-      div.className=cls; div.innerHTML=cardSVG(card.form,84,card.form==='circle'?charIdxForId(card.id):null);
+      div.className=cls; div.innerHTML=cardSVG(card.form,84,card.form==='circle'?charIdxForId(card.id):card.id);
       div.dataset.id=card.id; div.dataset.form=card.form;
       if(tappable){ div.onclick=function(){ onCardTap(card, v); }; }
       row.appendChild(div);
@@ -1270,7 +1284,7 @@ if (typeof window !== 'undefined') (function(){
       } else {
         var lr=m.lastResult, gain=lr?lr.gain:0, rd=lr?lr.roundNo:'';
         var tally = (lr && lr.rows.length)? ' · '+lr.rows.map(function(r){return esc(r.name)+' '+r.handPoints;}).join(' · ') : '';
-        $('winText').innerHTML='<span class="g">'+esc(v.winnerName)+'</span> clears their data — banks <span class="g">+'+gain+'</span> (round '+rd+')<span class="wtally">'+tally+'</span>';
+        $('winText').innerHTML='<span class="g">'+esc(v.winnerName)+'</span> goes out — banks <span class="g">+'+gain+'</span> (round '+rd+')<span class="wtally">'+tally+'</span>';
         hostBtn('Next round');
       }
     } else {
@@ -1286,7 +1300,7 @@ if (typeof window !== 'undefined') (function(){
     el.style.display='block';
     var max=Math.max(m.benchmark,1);
     var rows=m.scoreboard.slice().sort(function(a,b){return b.total-a.total;});
-    var html='<div class="sb-head">Data <span class="sb-rd">to '+m.benchmark+' · round '+m.roundNo+'</span></div>';
+    var html='<div class="sb-head">Scores <span class="sb-rd">to '+m.benchmark+' · round '+m.roundNo+'</span></div>';
     rows.forEach(function(r){
       var pct=Math.min(100,Math.round(100*r.total/max));
       var lead=m.matchWinner && r.name===m.matchWinnerName;
